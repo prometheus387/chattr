@@ -1,0 +1,17 @@
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Infrastructure.deps.json
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Infrastructure.runtimeconfig.json
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Infrastructure.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Infrastructure.pdb
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Core.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/bin/Debug/net10.0/Chattr.Core.pdb
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.csproj.AssemblyReference.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.AssemblyInfoInputs.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.AssemblyInfo.cs
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.csproj.CoreCompileInputs.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.I.EF0AD315.Up2Date
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/refint/Chattr.Infrastructure.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.pdb
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/Chattr.Infrastructure.genruntimeconfig.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/Debug/net10.0/ref/Chattr.Infrastructure.dll
