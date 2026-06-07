@@ -1,0 +1,19 @@
+.env
+.env.local
+
+
+# Chattr.Api
+Chattr.Api/appsettings.Development.json
+Chattr.Api/appsettings.Production.json
+Chattr.Api/appsettings.json
+
+.vscode
+.vscode/settings.json
+
+# Build files
+Chattr.Api/bin/
+Chattr.Api/obj/
+Chattr.Infrastructure/bin/
+Chattr.Infrastructure/obj/
+Chattr.Core/bin/
+Chattr.Core/obj/

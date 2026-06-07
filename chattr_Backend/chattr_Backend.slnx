@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Chattr.Api/Chattr.Api.csproj" />
+  <Project Path="Chattr.Core/Chattr.Core.csproj" />
+  <Project Path="Chattr.Infrastructure/Chattr.Infrastructure.csproj" />
+</Solution>
