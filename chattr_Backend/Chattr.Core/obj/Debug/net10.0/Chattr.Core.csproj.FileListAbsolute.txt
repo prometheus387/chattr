@@ -10,3 +10,15 @@
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/refint/Chattr.Core.dll
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.pdb
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/ref/Chattr.Core.dll
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/bin/Debug/net10.0/Chattr.Core.deps.json
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/bin/Debug/net10.0/Chattr.Core.dll
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/bin/Debug/net10.0/Chattr.Core.pdb
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.GeneratedMSBuildEditorConfig.editorconfig
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.AssemblyInfoInputs.cache
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.AssemblyInfo.cs
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.csproj.CoreCompileInputs.cache
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.sourcelink.json
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.dll
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/refint/Chattr.Core.dll
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.pdb
+/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/ref/Chattr.Core.dll

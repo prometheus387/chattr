@@ -505,9 +505,18 @@
           }
         }
       },
+      "Chattr.Domain/1.0.0": {
+        "runtime": {
+          "Chattr.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "Chattr.Infrastructure/1.0.0": {
         "dependencies": {
           "Chattr.Core": "1.0.0",
+          "Chattr.Domain": "1.0.0",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.2"
         },
         "runtime": {
@@ -708,6 +717,11 @@
       "hashPath": "system.composition.typedparts.9.0.0.nupkg.sha512"
     },
     "Chattr.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Chattr.Domain/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
