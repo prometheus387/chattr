@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Chattr.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a2dd8fffe9a1f1a85dbdf96b00ca8359fccb5d70")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+690a35241c90e6be724483d8387be2b0abca4b37")]
 [assembly: System.Reflection.AssemblyProductAttribute("Chattr.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Chattr.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

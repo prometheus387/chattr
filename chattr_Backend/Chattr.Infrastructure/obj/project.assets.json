@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 3,
   "targets": {
     "net10.0": {
       "Humanizer.Core/2.14.1": {
@@ -2677,23 +2677,24 @@
       "Chattr.Core >= 1.0.0",
       "Chattr.Domain >= 1.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 10.0.8",
+      "Microsoft.Extensions.Logging >= 10.0.8",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 10.0.2"
     ]
   },
   "packageFolders": {
-    "/Users/tommy31/.nuget/packages/": {}
+    "/home/admin/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Infrastructure/Chattr.Infrastructure.csproj",
+      "projectUniqueName": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/Chattr.Infrastructure.csproj",
       "projectName": "Chattr.Infrastructure",
-      "projectPath": "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Infrastructure/Chattr.Infrastructure.csproj",
-      "packagesPath": "/Users/tommy31/.nuget/packages/",
-      "outputPath": "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Infrastructure/obj/",
+      "projectPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/Chattr.Infrastructure.csproj",
+      "packagesPath": "/home/admin/.nuget/packages/",
+      "outputPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Infrastructure/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/Users/tommy31/.nuget/NuGet/NuGet.Config"
+        "/home/admin/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
@@ -2703,14 +2704,13 @@
       },
       "frameworks": {
         "net10.0": {
-          "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {
-            "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj": {
-              "projectPath": "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj"
+            "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj": {
+              "projectPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj"
             },
-            "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj": {
-              "projectPath": "/Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj"
+            "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj": {
+              "projectPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj"
             }
           }
         }
@@ -2725,16 +2725,19 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.300"
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net10.0": {
-        "framework": "net10.0",
         "targetAlias": "net10.0",
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Design": {
             "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
             "suppressParent": "All",
+            "target": "Package",
+            "version": "[10.0.8, )"
+          },
+          "Microsoft.Extensions.Logging": {
             "target": "Package",
             "version": "[10.0.8, )"
           },
@@ -2759,7 +2762,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.300/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.108/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",

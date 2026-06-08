@@ -10,3 +10,15 @@
 /Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/refint/Chattr.Domain.dll
 /Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.pdb
 /Users/tommy31/Desktop/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/ref/Chattr.Domain.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/bin/Debug/net10.0/Chattr.Domain.deps.json
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/bin/Debug/net10.0/Chattr.Domain.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/bin/Debug/net10.0/Chattr.Domain.pdb
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.AssemblyInfoInputs.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.AssemblyInfo.cs
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.csproj.CoreCompileInputs.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.sourcelink.json
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/refint/Chattr.Domain.dll
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/Chattr.Domain.pdb
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/obj/Debug/net10.0/ref/Chattr.Domain.dll
