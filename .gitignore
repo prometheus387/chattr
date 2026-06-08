@@ -17,6 +17,8 @@ chattr_Backend/Chattr.Infrastructure/bin
 chattr_Backend/Chattr.Infrastructure/obj
 chattr_Backend/Chattr.Core/bin
 chattr_Backend/Chattr.Core/obj
+chattr_Backend/Chattr.Domain/bin
+chattr_Backend/Chattr.Domain/obj
 
 chattr_Backend/Chattr.Api/obj/Chattr.Api.csproj.nuget.dgspec.json
 chattr_Backend/Chattr.Api/obj/Chattr.Api.csproj.nuget.g.props
