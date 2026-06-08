@@ -20,8 +20,11 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.Id).IsUnique();
+
         modelBuilder.Entity<PlatformInvite>().HasIndex(p => p.Id).IsUnique();
         modelBuilder.Entity<PlatformInvite>().HasIndex(p => p.Code).IsUnique();
+
+        modelBuilder.Entity<SystemSetting>().HasKey(s => s.Key);
         modelBuilder.Entity<SystemSetting>().HasIndex(s => s.Key).IsUnique();
     }
 }

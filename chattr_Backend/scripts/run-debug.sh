@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd "$(dirname "$0")/.." || exit
+
 # Farben für das Terminal
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'

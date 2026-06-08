@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chattr.Core\Chattr.Core.csproj" />
+    <ProjectReference Include="..\Chattr.Domain\Chattr.Domain.csproj" />
   </ItemGroup>
 
 </Project>

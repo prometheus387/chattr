@@ -5,6 +5,7 @@
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.AssemblyInfoInputs.cache
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.AssemblyInfo.cs
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.csproj.CoreCompileInputs.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.sourcelink.json
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.dll
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/refint/Chattr.Core.dll
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/obj/Debug/net10.0/Chattr.Core.pdb

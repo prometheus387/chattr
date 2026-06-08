@@ -22,6 +22,63 @@ namespace Chattr.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Chattr.Core.Entities.PlatformInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UsedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Id")
+                        .IsUnique();
+
+                    b.HasIndex("UsedById");
+
+                    b.ToTable("PlatformInvites");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.SystemSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("SystemSettings");
+                });
+
             modelBuilder.Entity("Chattr.Core.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -34,11 +91,19 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Email")
+                    b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SecurityAnswer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SecurityQuestion")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -48,13 +113,28 @@ namespace Chattr.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("Id")
                         .IsUnique();
 
                     b.HasIndex("Username")
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.PlatformInvite", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById");
+
+                    b.HasOne("Chattr.Core.Entities.User", "UsedBy")
+                        .WithMany()
+                        .HasForeignKey("UsedById");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("UsedBy");
                 });
 #pragma warning restore 612, 618
         }

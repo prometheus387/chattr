@@ -109,6 +109,7 @@
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.csproj.CoreCompileInputs.cache
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.MvcApplicationPartsAssemblyInfo.cs
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.MvcApplicationPartsAssemblyInfo.cache
+/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.sourcelink.json
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/rjimswa.dswa.cache.json
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/rjsmrazor.dswa.cache.json
 /home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Api/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json

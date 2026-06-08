@@ -831,6 +831,16 @@
         "runtime": {
           "bin/placeholder/Chattr.Core.dll": {}
         }
+      },
+      "Chattr.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/Chattr.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Chattr.Domain.dll": {}
+        }
       }
     }
   },
@@ -2655,11 +2665,17 @@
       "type": "project",
       "path": "../Chattr.Core/Chattr.Core.csproj",
       "msbuildProject": "../Chattr.Core/Chattr.Core.csproj"
+    },
+    "Chattr.Domain/1.0.0": {
+      "type": "project",
+      "path": "../Chattr.Domain/Chattr.Domain.csproj",
+      "msbuildProject": "../Chattr.Domain/Chattr.Domain.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
       "Chattr.Core >= 1.0.0",
+      "Chattr.Domain >= 1.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 10.0.8",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 10.0.2"
     ]
@@ -2691,6 +2707,9 @@
           "projectReferences": {
             "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj": {
               "projectPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Core/Chattr.Core.csproj"
+            },
+            "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj": {
+              "projectPath": "/home/admin/Schreibtisch/chattr/chattr_Backend/Chattr.Domain/Chattr.Domain.csproj"
             }
           }
         }

@@ -679,11 +679,22 @@
           "bin/placeholder/Chattr.Core.dll": {}
         }
       },
+      "Chattr.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/Chattr.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Chattr.Domain.dll": {}
+        }
+      },
       "Chattr.Infrastructure/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
           "Chattr.Core": "1.0.0",
+          "Chattr.Domain": "1.0.0",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.2"
         },
         "compile": {
@@ -2225,6 +2236,11 @@
       "type": "project",
       "path": "../Chattr.Core/Chattr.Core.csproj",
       "msbuildProject": "../Chattr.Core/Chattr.Core.csproj"
+    },
+    "Chattr.Domain/1.0.0": {
+      "type": "project",
+      "path": "../Chattr.Domain/Chattr.Domain.csproj",
+      "msbuildProject": "../Chattr.Domain/Chattr.Domain.csproj"
     },
     "Chattr.Infrastructure/1.0.0": {
       "type": "project",
