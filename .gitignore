@@ -3,17 +3,17 @@
 
 
 # Chattr.Api
-Chattr.Api/appsettings.Development.json
-Chattr.Api/appsettings.Production.json
-Chattr.Api/appsettings.json
+chattr_Backend/Chattr.Api/appsettings.Development.json
+chattr_Backend/Chattr.Api/appsettings.Production.json
+chattr_Backend/Chattr.Api/appsettings.json
 
 .vscode
 .vscode/settings.json
 
 # Build files
-Chattr.Api/bin/
-Chattr.Api/obj/
-Chattr.Infrastructure/bin/
-Chattr.Infrastructure/obj/
-Chattr.Core/bin/
-Chattr.Core/obj/
+chattr_Backend/Chattr.Api/bin/
+chattr_Backend/Chattr.Api/obj/
+chattr_Backend/Chattr.Infrastructure/bin/
+chattr_Backend/Chattr.Infrastructure/obj/
+chattr_Backend/Chattr.Core/bin/
+chattr_Backend/Chattr.Core/obj/
