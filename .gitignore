@@ -11,9 +11,18 @@ chattr_Backend/Chattr.Api/appsettings.json
 .vscode/settings.json
 
 # Build files
-chattr_Backend/Chattr.Api/bin/
-chattr_Backend/Chattr.Api/obj/
-chattr_Backend/Chattr.Infrastructure/bin/
-chattr_Backend/Chattr.Infrastructure/obj/
-chattr_Backend/Chattr.Core/bin/
-chattr_Backend/Chattr.Core/obj/
+chattr_Backend/Chattr.Api/bin
+chattr_Backend/Chattr.Api/obj
+chattr_Backend/Chattr.Infrastructure/bin
+chattr_Backend/Chattr.Infrastructure/obj
+chattr_Backend/Chattr.Core/bin
+chattr_Backend/Chattr.Core/obj
+
+chattr_Backend/Chattr.Api/obj/Chattr.Api.csproj.nuget.dgspec.json
+chattr_Backend/Chattr.Api/obj/Chattr.Api.csproj.nuget.g.props
+chattr_Backend/Chattr.Api/obj/project.assets.json
+chattr_Backend/Chattr.Api/obj/project.nuget.cache
+chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.AssemblyInfo.cs
+chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.AssemblyInfoInputs.cache
+chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.assets.cache
+chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.csproj.AssemblyReference.cache
