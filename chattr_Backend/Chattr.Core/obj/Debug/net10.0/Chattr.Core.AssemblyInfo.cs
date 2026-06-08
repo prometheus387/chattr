@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Chattr.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+77040d319eaf8fb021badda47f60068959c2c133")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7c055768981a5d4a9163fe322d79cf3be8f74757")]
 [assembly: System.Reflection.AssemblyProductAttribute("Chattr.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Chattr.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

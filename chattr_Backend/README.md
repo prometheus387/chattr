@@ -6,6 +6,17 @@ The project stack is a bit complicated.
 Backend C# Multi Project Solution with ASP.NET and EF Core...
 and frontend with React or maybe Nextjs... who knows...
 
+## Structure
+
+```
+chattr /
+    chattr_Backend /
+        - Chattr.Api
+        - Chattr.Core
+        - Chattr.Infrastructure
+    - chattr_Frontend
+```
+
 ## Project Setup
 
 First of all, set the project secrets in an .env in the main backend folder.
