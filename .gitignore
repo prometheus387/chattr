@@ -1,6 +1,7 @@
 .env
 .env.local
 
+# -------------------------------- Backend --------------------------------
 
 # Chattr.Api
 chattr_Backend/Chattr.Api/appsettings.Development.json
@@ -28,3 +29,25 @@ chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.AssemblyInfo.cs
 chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.AssemblyInfoInputs.cache
 chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.assets.cache
 chattr_Backend/Chattr.Api/obj/Debug/net10.0/Chattr.Api.csproj.AssemblyReference.cache
+
+# -------------------------------- Frontend --------------------------------
+chattr_Frontend/.vscode
+
+chattr_Frontend/.output
+chattr_Frontend/.vercel
+chattr_Frontend/.netlify
+chattr_Frontend/.wrangler
+chattr_Frontend/.svelte-kit
+chattr_Frontend/build
+
+chattr_Frontend/.env
+chattr_Frontend/.env.*
+!chattr_Frontend/.env.example
+!chattr_Frontend/.env.test
+
+# Vite
+chattr_Frontend/vite.config.js.timestamp-*
+chattr_Frontend/vite.config.ts.timestamp-*
+
+# Playwright
+chattr_Frontend/test-results
