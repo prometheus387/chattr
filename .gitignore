@@ -39,6 +39,7 @@ chattr_Frontend/.netlify
 chattr_Frontend/.wrangler
 chattr_Frontend/.svelte-kit
 chattr_Frontend/build
+chattr_Frontend/package-lock.json
 
 chattr_Frontend/.env
 chattr_Frontend/.env.*
