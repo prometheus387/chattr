@@ -1,0 +1,58 @@
+@import url(../../global.css);
+
+.si-form {
+    color: white;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+}
+
+.si-form-item {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.si-form-label {
+    font-size: 1.5rem;
+}
+
+.si-input {
+    padding: 5px 5px 5px 5px;
+    border: 2px solid var(--foreground);
+    background: var(--background);
+    letter-spacing: 1.5px;
+    transition: all .1s ease-in-out;
+}
+
+.si-input:hover {
+    border-color: var(--foreground-accent);
+    background-color: var(--background-accent);
+}
+
+.si-input:focus {
+    transform: scaleX(1.1);
+}
+
+.si-button {
+    background-color: var(--background);
+    border: 2px solid var(--foreground);
+    width: 100%;
+    padding: 5px;
+    font-size: 1.2rem;
+    margin-top: 20px;
+    transition: all .1s ease-in-out;
+}
+
+.si-button:hover {
+    background-color: var(--background-accent);
+    border-color: var(--foreground-accent);
+    transform: translateY(-2px);
+}
+
+.si-button:active {
+    transform: scale(0.95);
+}

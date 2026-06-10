@@ -9,7 +9,7 @@
         console.log('Navigation component mounted');
     });
 </script>
-<div class="w-full max-w-full overflow-x-hidden flex justify-between items-center py-2 px-3 text-white">
+<div class="w-full max-w-full overflow-x-hidden flex justify-between items-center py-2 px-3 text-white fixed top-0 left-0">
     <h1 class="nv-title geo-regular">{Base.title}</h1>
     <div class="flex items-center justify-center gap-3">
         {#each navigationLinks as navLink (navLink.name)}
