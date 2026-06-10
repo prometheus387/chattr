@@ -1,0 +1,43 @@
+* {
+    --background: rgb(9, 52, 70);
+    --background-raw: 9, 52, 70;
+    --background-accent: rgb(8, 41, 55);
+    --background-accent-raw: 8, 41, 55;
+
+    --background-secondary: rgb(11, 69, 82);
+    --background-secondary-raw: 11, 69, 82;
+    --background-secondary-accent: rgb(13, 87, 104);
+    --background-secondary-accent-raw: 13, 87, 104;
+ 
+    --background-danger: rgb(177, 40, 40);
+    --background-danger-raw: 177, 40, 40;
+    --background-danger-accent: rgb(134, 31, 31);
+    --background-danger-accent-raw: 134, 31, 31;
+
+    --foreground: rgb(25, 180, 175);
+    --foreground-raw: 25, 180, 175;
+    --foreground-accent: rgb(21, 150, 146);
+    --foreground-accent-raw: 21, 150, 146;
+
+    --foreground-secondary: rgb(20, 156, 152);
+    --foreground-secondary-raw: 20, 156, 152;
+    --foreground-secondary-accent: rgb(17, 135, 131);
+
+    --foreground-danger: rgb(212, 47, 47);
+    --foreground-danger-raw: 212, 47, 47;
+    --foreground-danger-accent: rgb(189, 40, 40);
+    --foreground-danger-accent-raw: 189, 40, 40;
+
+}
+
+.geo-regular {
+  font-family: "Geo", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.geo-regular-italic {
+  font-family: "Geo", sans-serif;
+  font-weight: 400;
+  font-style: italic;
+}

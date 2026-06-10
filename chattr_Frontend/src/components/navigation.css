@@ -1,0 +1,72 @@
+@import url(../routes/global.css);
+
+.nv-title {
+    letter-spacing: 2px;
+    font-size: 1.5rem;
+    transition: all .2s ease-in-out;
+}
+
+.nv-title:hover {
+    transform: rotate(-5deg);
+}
+
+.nv-link {
+    letter-spacing: 2px;
+    font-size: 1.5rem;
+    transition: all .1s ease-in-out;
+}
+
+.nv-link:hover {
+    transform: translateY(-2px);
+}
+
+.nv-link:active {
+    transform: scale(0.95);
+}
+
+.nv-button {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    transition: all .1s ease-in-out;
+    letter-spacing: 2px;
+    font-size: 1.1rem;
+}
+
+.nv-button:hover {
+    transform: translateY(-2px);
+}
+
+.nv-button:active {
+    transform: scale(0.95);
+}
+
+.nv-button-primary {
+    border: 2px solid var(--foreground);
+}
+
+.nv-button-primary:hover {
+    background-color: var(--background-accent);
+    border-color: var(--foreground-accent);
+}
+
+.nv-button-secondary {
+    border: 2px solid var(--foreground-secondary);
+    background-color: var(--background-accent);
+}
+
+.nv-button-secondary:hover {
+    border-color: var(--foreground-secondary-accent);
+    background-color: var(--background-secondary-accent);
+}
+
+.nv-button-danger {
+    border: 2px solid var(--foreground-danger);
+    background-color: var(--background-danger);
+}
+
+.nv-button-danger:hover {
+    background-color: var(--background-danger-accent);
+    border-color: var(--foreground-danger-accent);
+}
