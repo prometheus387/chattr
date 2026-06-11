@@ -1,8 +1,9 @@
 $background: rgb(12, 12, 12);
 $background-accent: rgb(0, 0, 0);
 
-$background-primary: rgb(201, 0, 0);
-$background-primary-accent: rgb(176, 0, 0);
+$background-primary: #8a0003;
+$background-primary-accent: #7b0003;
+$btn-primary-hover: #220000;
 
 $background-secondary: rgb(99, 0, 0);
 
@@ -12,6 +13,6 @@ $foreground: rgb(235, 235, 235);
 
 $foreground-primary: rgb(255, 255, 255);
 
-$foreground-secondary: rgb(235, 235, 235);
+$foreground-secondary: rgb(194, 194, 194);
 
-$foreground-danger: rgb(201, 0, 0);
+$foreground-danger: #8a0003;

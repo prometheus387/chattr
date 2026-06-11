@@ -1,4 +1,34 @@
-# ChattrFrontend
+# Chattr Frontend
+
+## To-Do's
+- Dropdown Support in Navbar
+- All of the client
+- Auth and Auth Provider
+
+## Commands
+### Creating components
+```bash
+# Components
+ng generate componente component/example
+ng g c component/example
+
+# Service
+ng generate service core/services/chat
+ng g s core/services/chat
+
+# Guard
+ng generate guard core/guards/auth
+ng g g core/guards/auth
+
+# Interface
+ng generate interface core/models/message
+ng g i core/models/message
+
+# Custom Pipe
+ng generate pipe shared/pipes/chat-date
+ng g p shared/pipes/chat-date
+```
+
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.14.
 

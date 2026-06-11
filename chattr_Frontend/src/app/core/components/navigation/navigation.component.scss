@@ -5,24 +5,45 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid vars.$background-primary;
 }
 
 .nv-title {
     color: vars.$foreground-danger;
-    font-family: monospace;
     font-weight: 400;
     font-size: 1rem;
     padding-left: 20px;
+    transition: all .2s ease-in-out;
+}
+
+.nv-title:hover {
+    transform: translateY(-2px);
 }
 
 .nv-item-list {
-    font-family: monospace;
-    color: vars.$foreground;
+    color: vars.$foreground-secondary;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.nv-item-list a {
+    transition: all .1s ease-in-out;
 }
 
 .nv-item-list a:link {
     color: vars.$foreground;
     text-decoration: none;
+}
+
+.nv-item-list a:visited {
+    color: vars.$foreground;
+}
+
+.nv-item-list a:hover {
+    color: vars.$background-primary;
 }
 
 .nv-auth-area {
@@ -34,21 +55,20 @@
 }
 
 .nv-auth-btn {
-    font-family: monospace;
-    background-color: vars.$background-primary;
+    background-color: vars.$background;
     color: vars.$foreground;
-    border: 0px solid;
+    border: 1px solid vars.$background-primary;
     border-radius: 5px;
     padding: 5px 5px 5px 5px;
+    transition: all .2s ease-in-out;
 }
 
 .nv-auth-btn:hover {
-    background-color: vars.$background-primary-accent;
+    background-color: vars.$btn-primary-hover;
 }
 
 
 .nv-auth-btn-secondary {
-    font-family: monospace;
     background-color: vars.$background;
     color: vars.$foreground;
     border: 0px solid;
