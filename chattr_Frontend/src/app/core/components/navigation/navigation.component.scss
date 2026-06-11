@@ -1,89 +1,72 @@
 @use "../../../../variables" as vars;
 
 .nv-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     display: flex;
-    justify-content: space-between;
+    justify-content: space-around;
     align-items: center;
-    border-bottom: 1px solid vars.$background-primary;
+    padding-top: 20px;
+    background: transparent;
+    z-index: 100;
 }
 
-.nv-title {
-    color: vars.$foreground-danger;
-    font-weight: 400;
-    font-size: 1rem;
-    padding-left: 20px;
-    transition: all .2s ease-in-out;
-}
-
-.nv-title:hover {
-    transform: translateY(-2px);
-}
-
-.nv-item-list {
-    color: vars.$foreground-secondary;
+.nv-logo {
+    color: vars.$foreground;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
-    cursor: pointer;
+    gap: 5px;
+    font-size: 1.3rem;
 }
 
-.nv-item-list a {
-    transition: all .1s ease-in-out;
+.nv-logo-icon {
+    color: vars.$primary;
 }
 
-.nv-item-list a:link {
-    color: vars.$foreground;
+.nv-gs-btn {
+    background-color: vars.$primary;
+    color: vars.$muted;
+    border: 0px solid;
+    border-radius: 10px;
+}
+
+.nv-gs-btn:link {
+    color: vars.$muted;
+    padding: 8px 10px 8px 10px;
     text-decoration: none;
 }
 
-.nv-item-list a:visited {
-    color: vars.$foreground;
+.nv-gs-btn:visited {
+    color: vars.$muted;
 }
 
-.nv-item-list a:hover {
-    color: vars.$background-primary;
+.nv-gs-btn:hover {
+    cursor: pointer;
 }
 
-.nv-auth-area {
-    padding-right: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
+.nv-item-prefix {
+    color: vars.$primary;
 }
 
-.nv-auth-btn {
-    background-color: vars.$background;
-    color: vars.$foreground;
-    border: 1px solid vars.$background-primary;
-    border-radius: 5px;
-    padding: 5px 5px 5px 5px;
-    transition: all .2s ease-in-out;
+.nv-item-link {
+    color: vars.$muted-foreground;
+    font-size: 0.9rem;
+    transition: all .2s ease;
 }
 
-.nv-auth-btn:hover {
-    background-color: vars.$btn-primary-hover;
+.nv-item-link:hover {
+    color: vars.$primary;
 }
 
-
-.nv-auth-btn-secondary {
-    background-color: vars.$background;
-    color: vars.$foreground;
-    border: 0px solid;
-    border-radius: 5px;
-    padding: 5px 5px 5px 5px;
+.nv-item-link:link {
+    color: vars.$muted-foreground;
+    text-decoration: none;
 }
 
-.nv-auth-btn-secondary:hover {
-    background-color: vars.$background-accent;
-}
+.nv-item-link:visited {
+    color: vars.$muted-foreground;
 
-.nv-btn {
-    transition: all .1s ease-in-out;
-}
-
-.nv-btn:active {
-    transform: scale(0.95);
 }

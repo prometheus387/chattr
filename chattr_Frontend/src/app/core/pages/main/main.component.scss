@@ -3,3 +3,89 @@
 .title {
     color: vars.$foreground;
 }
+
+.radial-background {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image: radial-gradient(ellipse at center, rgb(231, 19, 39) 0%, transparent 70%);
+    opacity: 0.07;
+    z-index: 0;
+}
+
+.m-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.dollar {
+    color: vars.$primary;
+}
+
+.m-content-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-top: 100px;
+    z-index: 2;
+}
+
+.m-content-wrapper h1 {
+    color: white;
+}
+
+.m-version-display {
+    border: 1px solid vars.$border;
+    background-color: vars.$muted;
+    color: vars.$muted-foreground;
+    font-size: small;
+    max-width: 300px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
+.m-version-dot {
+    background-color: vars.$primary;
+    width: 10px;
+    height: 10px;
+    border: 0px solid;
+    border-radius: 50%;
+    animation: m-version-dot-glow 1s ease forwards infinite;
+}
+
+.m-title {
+    font-size: 3rem;
+}
+
+.m-subtitle {
+    color: vars.$muted-foreground;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 400;
+    font-size: large;
+}
+
+@keyframes m-version-dot-glow {
+    0% {
+        filter: brightness(1);
+    } 50% {
+        filter: brightness(0.5);
+    } 100% {
+        filter: brightness(1);
+    }
+    
+}

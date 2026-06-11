@@ -1,14 +1,22 @@
 <nav class="nv-wrapper">
-  <h1 class="nv-title roboto-mono">chattr</h1>
-  <div class="nv-item-list roboto-mono">
-    @for (link of navLinks; track link.label) {
-      <a
-        [routerLink]="link.route"
-      >{{ link.label }}</a>
-    }
+  <div class="nv-logo jetbrains-mono-400">
+    <span class="nv-logo-icon">$</span>
+    chattr
   </div>
-  <div class="nv-auth-area">
-    <button class="nv-auth-btn nv-btn roboto-mono">Sign In</button>
-    <button class="nv-auth-btn-secondary nv-btn roboto-mono">Register</button>
+  <div class="nv-items">
+    @for (link of navLinks; track link.label) {
+      <a 
+        class="nv-item-link jetbrains-mono-400"
+        [routerLink]="link.route"
+        routerLinkActive="nv-item-link-active"
+        [routerLinkActiveOptions]="{exact: true}"
+      >
+        <span class="nv-item-prefix">
+          ~
+        </span>
+        /{{ link.label.toLocaleLowerCase() }}
+      </a>
+    }
+    <a href="/auth/register" class="jetbrains-mono-400 nv-gs-btn">Get Started</a>
   </div>
 </nav>

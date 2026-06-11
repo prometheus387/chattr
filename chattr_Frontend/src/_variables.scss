@@ -1,7 +1,8 @@
-$background: rgb(12, 12, 12);
+/*
+$background: rgb(0, 0, 0);
 $background-accent: rgb(0, 0, 0);
 
-$background-primary: #8a0003;
+$background-primary: rgb(241, 69, 69);
 $background-primary-accent: #7b0003;
 $btn-primary-hover: #220000;
 
@@ -16,3 +17,90 @@ $foreground-primary: rgb(255, 255, 255);
 $foreground-secondary: rgb(194, 194, 194);
 
 $foreground-danger: #8a0003;
+*/
+
+/*
+$background: rgb(2, 2, 2);
+$background-raw: 2, 2, 2;
+
+$foreground: rgb(199, 209, 198);
+$foreground-raw: 199, 209, 198;
+
+$primary: rgb(231, 19, 39);
+$primary-raw: 231, 19, 39;
+
+$border: rgb(22, 22, 22);
+$border-raw: 22, 22, 22;
+
+$muted: rgb(2, 2, 2);
+
+$muted-foreground: rgb(110, 115, 110);
+*/
+
+// Background & Core Colors
+$background: rgb(2, 2, 2);
+$background-raw: 2, 2, 2;
+
+$foreground: rgb(199, 209, 198);
+$foreground-raw: 199, 209, 198;
+
+// Card & Popover Components
+$card: rgb(4, 4, 4);
+$card-raw: 4, 4, 4;
+
+$card-foreground: rgb(199, 209, 198);
+$card-foreground-raw: 199, 209, 198;
+
+$popover: rgb(4, 4, 4);
+$popover-raw: 4, 4, 4;
+
+$popover-foreground: rgb(199, 209, 198);
+$popover-foreground-raw: 199, 209, 198;
+
+// UI Elements & State Colors
+$primary: rgb(231, 19, 39);
+$primary-raw: 241, 69, 69;
+
+$primary-foreground: rgb(2, 2, 2);
+$primary-foreground-raw: 2, 2, 2;
+
+$secondary: rgb(8, 8, 8);
+$secondary-raw: 8, 8, 8;
+
+$secondary-foreground: rgb(199, 209, 198);
+$secondary-foreground-raw: 199, 209, 198;
+
+$accent: rgb(8, 8, 8);
+$accent-raw: 8, 8, 8;
+
+$accent-foreground: rgb(199, 209, 198);
+$accent-foreground-raw: 199, 209, 198;
+
+$destructive: rgb(231, 19, 39);
+$destructive-raw: 241, 69, 69;
+
+$destructive-foreground: rgb(2, 2, 2);
+$destructive-foreground-raw: 2, 2, 2;
+
+// Borders, Inputs & Interaction
+$input: rgb(18, 18, 18);
+$input-raw: 18, 18, 18;
+
+$border: rgb(18, 18, 18);
+$border-raw: 18, 18, 18;
+
+$ring: rgb(231, 19, 39);
+$ring-raw: 241, 69, 69;
+
+$muted: rgb(8, 8, 8);
+$muted-raw: 8, 8, 8;
+
+$muted-foreground: rgb(109, 115, 109);
+$muted-foreground-raw: 109, 115, 109;
+
+// Chart Colors (Dein Farbschema für Datenvisualisierungen)
+$chart-1: rgb(231, 19, 39);      // Rot (Gleich wie Primary)
+$chart-2: rgb(0, 117, 72);       // Dunkles Smaragdgrün
+$chart-3: rgb(0, 84, 163);       // Tiefblau
+$chart-4: rgb(148, 113, 56);     // Muted Ocker / Goldbraun
+$chart-5: rgb(41, 122, 137);     // Gedecktes Cyan / Petrol
