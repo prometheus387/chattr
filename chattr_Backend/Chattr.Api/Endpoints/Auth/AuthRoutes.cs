@@ -1,0 +1,12 @@
+namespace Chattr.Api.Endpoints.Auth;
+
+public static class AuthRoutes
+{
+    public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/auth");
+
+        group.MapPost("/register", AuthHandlers.RegisterUser);
+        group.MapGet("/username-free", AuthHandlers.UsernameExists);
+    }
+}

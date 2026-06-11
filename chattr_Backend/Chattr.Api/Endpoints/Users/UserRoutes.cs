@@ -6,8 +6,6 @@ public static class UserRoutes
     {
         var group = app.MapGroup("/api/users");
 
-        // Hier wird nur noch gemappt und zugeordnet, Akh!
         group.MapGet("/", UserHandlers.GetAllUsers);
-        group.MapPost("/register", UserHandlers.RegisterUser);
     }
 }
