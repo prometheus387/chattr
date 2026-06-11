@@ -1,6 +1,0 @@
-@import 'tailwindcss';
-@import url(./global.css);
-
-body {
-    background-color: var(--background);
-}

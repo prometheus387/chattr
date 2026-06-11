@@ -1,42 +1,59 @@
-# sv
+# ChattrFrontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.14.
 
-## Creating a project
+## Development server
 
-If you're seeing this, you've probably already done this step. Congrats!
+To start a local development server, run:
 
-```sh
-# create a new project
-npx sv create my-app
+```bash
+ng serve
 ```
 
-To recreate this project with the same configuration:
+Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
-```sh
-# recreate this project
-npx sv@0.15.4 create --template minimal --types ts --add prettier eslint vitest="usages:unit,component" playwright tailwindcss="plugins:none" --install npm chattr_Frontend
+## Code scaffolding
+
+Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+
+```bash
+ng generate component component-name
 ```
 
-## Developing
+For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```bash
+ng generate --help
 ```
 
 ## Building
 
-To create a production version of your app:
+To build the project run:
 
-```sh
-npm run build
+```bash
+ng build
 ```
 
-You can preview the production build with `npm run preview`.
+This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Running unit tests
+
+To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+
+```bash
+ng test
+```
+
+## Running end-to-end tests
+
+For end-to-end (e2e) testing, run:
+
+```bash
+ng e2e
+```
+
+Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+
+## Additional Resources
+
+For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

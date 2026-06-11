@@ -1,0 +1,69 @@
+@use "../../../../variables" as vars;
+
+.nv-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nv-title {
+    color: vars.$foreground-danger;
+    font-family: monospace;
+    font-weight: 400;
+    font-size: 1rem;
+    padding-left: 20px;
+}
+
+.nv-item-list {
+    font-family: monospace;
+    color: vars.$foreground;
+}
+
+.nv-item-list a:link {
+    color: vars.$foreground;
+    text-decoration: none;
+}
+
+.nv-auth-area {
+    padding-right: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.nv-auth-btn {
+    font-family: monospace;
+    background-color: vars.$background-primary;
+    color: vars.$foreground;
+    border: 0px solid;
+    border-radius: 5px;
+    padding: 5px 5px 5px 5px;
+}
+
+.nv-auth-btn:hover {
+    background-color: vars.$background-primary-accent;
+}
+
+
+.nv-auth-btn-secondary {
+    font-family: monospace;
+    background-color: vars.$background;
+    color: vars.$foreground;
+    border: 0px solid;
+    border-radius: 5px;
+    padding: 5px 5px 5px 5px;
+}
+
+.nv-auth-btn-secondary:hover {
+    background-color: vars.$background-accent;
+}
+
+.nv-btn {
+    transition: all .1s ease-in-out;
+}
+
+.nv-btn:active {
+    transform: scale(0.95);
+}
