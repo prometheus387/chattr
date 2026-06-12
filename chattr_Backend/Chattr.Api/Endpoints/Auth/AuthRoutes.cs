@@ -7,6 +7,7 @@ public static class AuthRoutes
         var group = app.MapGroup("/api/auth");
 
         group.MapPost("/register", AuthHandlers.RegisterUser);
+        group.MapPost("/signin", AuthHandlers.SignInUser);
         group.MapGet("/username-free", AuthHandlers.UsernameExists);
     }
 }

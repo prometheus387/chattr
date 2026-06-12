@@ -16,6 +16,11 @@ public static class AuthHandlers
         return Results.Created($"/api/auth/{newUser.Id}", newUser);
     }
 
+    public static async Task<IResult> SignInUser(string username, string password, AppDbContext context)
+    {
+        return Results.Accepted();
+    }
+
     public static async Task<IResult> UsernameExists(string username, AppDbContext context)
     {
         var userExists = await context.Users.AnyAsync(u => u.Username == username);

@@ -14,6 +14,12 @@ import { RouterLink, RouterLinkActive, RouterLinkWithHref } from "@angular/route
 })
 export class NavigationComponent implements OnInit {
     navLinks: NavItem[] = NAVBAR_LINKS;
+    showMobileNav: boolean = false;
+
+    toggleMobileNavStatus() {
+        this.showMobileNav = !this.showMobileNav;
+    }
+
     constructor() {
         
     }
