@@ -1,7 +1,7 @@
 @use "../../../../variables" as vars;
 
 .nv-wrapper {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -78,15 +78,68 @@
     text-decoration: none;
 }
 
-/*.nv-item-link a:link {
-    color: vars.$muted-foreground;
-    text-decoration: none;
+.nv-toggle-wrapper {
+
 }
 
-.nv-item-link a:link:hover {
-    color: vars.$primary;
+.nv-toggle-btn {
+    background-color: transparent;
+    color: white;
+    border: none;
+    display: none;
 }
 
-.nv-item-link:visited {
-    color: vars.$muted-foreground;
-}*/
+.nv-toggle-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .nv-items { 
+        display: none;
+    }
+
+    .nv-toggle-wrapper {
+        z-index: 102;
+    }
+
+    .nv-toggle-btn {
+        display: block;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        transition: all .2s ease-in-out;
+    }
+
+    .nv-toggle-btn-spinned {
+        transform: rotate(90deg);
+    }
+
+    .nv-item-wrapper {
+        display: flex;
+        flex-direction: column;
+        padding-left: 20px;
+        padding-top: 50px;
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        top: 0px;
+        left: 0px;
+        transform: translateX(-100%);
+        transition: all 2s ease-in-out;
+    }
+
+    .nv-item-wrapper-show {
+        display: flex;
+        flex-direction: column;
+        padding-left: 20px;
+        padding-top: 50px;
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        top: 0px;
+        left: 0px;
+        transform: translateX(0);
+        transition: all 2s ease-in-out;
+    }
+}
