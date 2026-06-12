@@ -7,15 +7,6 @@ export const NAVBAR_LINKS: NavItem[] = [
     },
     {
         label: "Support",
-        children: [
-            {
-                label: "Ticket Support",
-                route: "/support/tickets"
-            },
-            {
-                label: "Help Page",
-                route: "/support/help"
-            }
-        ]
+        route: "/support"
     }
 ]

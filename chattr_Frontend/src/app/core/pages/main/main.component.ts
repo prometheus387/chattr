@@ -5,7 +5,7 @@ import { NavigationComponent } from '../../components/navigation/navigation.comp
 @Component({
   selector: 'main-page',
   standalone: true,
-  imports: [RouterOutlet, NavigationComponent], 
+  imports: [], 
   templateUrl: './main.component.html',
   styleUrl: "./main.component.scss"
 })
