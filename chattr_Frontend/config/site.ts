@@ -2,7 +2,7 @@ export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
   name: "chattr",
-  description: "Guilds, Groups and DMs but encrypted (AES 256 and PGP)",
+  description: "Guilds, groups and DMs — end-to-end encrypted, managed for you",
   navItems: [
     {
       label: "Client",
