@@ -1,13 +1,12 @@
-using System.Dynamic;
-
 namespace Chattr.Core.Entities;
 
 public class GuildMember
 {
-    public Guid Id { get; set; }
-    public User ReferredUser { get; set; } = null!;
-    public Guild ReferredGuild { get; set; } = null!;
-    public List<GuildRole> Roles { get; set; } = new();
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User? User { get; set; }
+    public int GuildId { get; set; }
+    public Guild? Guild { get; set; }
     public bool IsOwner { get; set; } = false;
-
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 }

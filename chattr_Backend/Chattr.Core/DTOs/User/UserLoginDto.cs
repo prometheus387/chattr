@@ -1,4 +1,4 @@
-namespace Chattr.Core.DTOs;
+namespace Chattr.Core.DTOs.User;
 
 public class UserLoginDto
 {

@@ -159,7 +159,6 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
 						"[color-scheme:dark]",
 						className,
 					)}
-					defaultValue=""
 					{...rest}
 				>
 					{placeholder ? (
@@ -187,18 +186,22 @@ interface CheckboxProps {
 	children: ReactNode;
 	id?: string;
 	delay?: number;
+	disabled?: boolean;
 }
 
 /**
  * Custom checkbox with a path-drawing check animation (see `.check-draw`
  * in globals.css) and a small scale pop when toggled on.
  */
-export function Checkbox({ checked, onChange, children, id, delay = 0 }: CheckboxProps) {
+export function Checkbox({ checked, onChange, children, id, delay = 0, disabled = false }: CheckboxProps) {
 	const reactId = useId();
 	return (
 		<label
 			htmlFor={id ?? reactId}
-			className="auth-field group flex cursor-pointer select-none items-start gap-2.5"
+			className={clsx(
+				"auth-field group flex cursor-pointer select-none items-start gap-2.5",
+				disabled && "opacity-50 cursor-not-allowed",
+			)}
 			style={{ ["--auth-delay" as string]: `${delay}ms` }}
 		>
 			<span className="relative mt-0.5 inline-flex shrink-0">
@@ -207,6 +210,7 @@ export function Checkbox({ checked, onChange, children, id, delay = 0 }: Checkbo
 					type="checkbox"
 					checked={checked}
 					onChange={(e) => onChange(e.target.checked)}
+					disabled={disabled}
 					className="peer sr-only"
 				/>
 				<span

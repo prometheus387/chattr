@@ -16,7 +16,7 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     <AuthProvider>
       <NextThemesProvider {...themeProps}>
         {children}
-      </NextThemesProvider>;
+      </NextThemesProvider>
     </AuthProvider>
   </>
 }

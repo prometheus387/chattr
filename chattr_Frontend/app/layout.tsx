@@ -43,7 +43,13 @@ export default function RootLayout({
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           <div className="relative flex flex-col h-screen">
             <Navbar />
-            <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
+            {/*
+              The <main> intentionally has no `container` / `max-w-*` / `px-*`
+              constraints. Individual pages opt in to a centered layout via
+              the shared <PageContainer> component; the chat client uses
+              the full viewport width.
+            */}
+            <main className="pt-16 flex-grow">
               {children}
             </main>
           </div>
