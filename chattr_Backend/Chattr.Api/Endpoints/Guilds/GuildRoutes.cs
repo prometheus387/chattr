@@ -9,6 +9,11 @@ public static class GuildRoutes
         group.MapGet("/", GuildHandlers.GetMyGuilds)
              .RequireAuthorization();
 
+        // Create a new guild. The caller becomes its owner and gets
+        // #general + #announcements seeded automatically.
+        group.MapPost("/", GuildHandlers.CreateGuild)
+             .RequireAuthorization();
+
         // Leave a guild. Maps to /api/guilds/{id}/members/me.
         group.MapDelete("/{guildId:int}/members/me", GuildHandlers.LeaveGuild)
              .RequireAuthorization();

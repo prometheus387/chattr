@@ -23,6 +23,7 @@ import { MessageInput } from "@/components/client/message-input";
 import { UserList } from "@/components/client/user-list";
 import { FriendsList } from "@/components/client/friends-list";
 import { DmMessageList } from "@/components/client/dm-message-list";
+import { CreateGuildModal } from "@/components/client/create-guild-modal";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */
@@ -94,6 +95,7 @@ function ClientPageInner() {
   const [leavingGuild, setLeavingGuild] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [openingDm, setOpeningDm] = useState(false);
+  const [createGuildOpen, setCreateGuildOpen] = useState(false);
 
   /**
    * On screens below `md` we can only show one of the two side panels
@@ -491,6 +493,27 @@ function ClientPageInner() {
     }
   }, [selection.scope, leavingGuild, guilds, auth]);
 
+  /**
+   * Insert a newly-created guild into the sidebar, switch the
+   * selection to it, and let the existing channel-loader effect pick
+   * up the seeded channels. Called by `CreateGuildModal` on success.
+   */
+  const onGuildCreated = useCallback(
+    (guild: GuildSummary) => {
+      setGuilds((prev) => {
+        // Defensive: dedupe in case the user double-submitted.
+        if (prev.some((g) => g.id === guild.id)) return prev;
+        return [...prev, guild];
+      });
+      setSelection({
+        scope: { kind: "guild", guildId: guild.id },
+        channelId: null,
+        dmId: null,
+      });
+    },
+    [],
+  );
+
   /** Open (or create) a DM with `userId` and switch to it. */
   const onOpenDmWith = useCallback(
     async (userId: number) => {
@@ -624,6 +647,7 @@ function ClientPageInner() {
         onSelect={onSelectGuild}
         onHome={onSelectHome}
         homeActive={selection.scope.kind === "friends"}
+        onCreate={() => setCreateGuildOpen(true)}
         className="shrink-0"
       />
       <ChannelSidebar
@@ -696,6 +720,11 @@ function ClientPageInner() {
           className="hidden lg:flex w-60 shrink-0"
         />
       )}
+      <CreateGuildModal
+        open={createGuildOpen}
+        onClose={() => setCreateGuildOpen(false)}
+        onCreated={onGuildCreated}
+      />
     </div>
   );
 }

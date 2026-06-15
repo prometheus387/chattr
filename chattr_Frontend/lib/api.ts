@@ -167,6 +167,15 @@ export const api = {
   guilds: {
     /** Guilds the current user is a member of. */
     list: () => request<GuildSummary[]>("/api/guilds"),
+    /**
+     * Create a new guild. The caller becomes its owner and the
+     * server seeds #general + #announcements so it's not empty.
+     */
+    create: (name: string) =>
+      request<GuildSummary>("/api/guilds", {
+        method: "POST",
+        body: { name },
+      }),
     /** All channels in a guild, grouped client-side by category. */
     channels: (guildId: number) =>
       request<Channel[]>(`/api/guilds/${guildId}/channels`),

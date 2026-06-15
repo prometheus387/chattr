@@ -10,6 +10,8 @@ interface Props {
   onHome: () => void;
   /** When true, the home/friends icon is the active selection. */
   homeActive: boolean;
+  /** Open the "create guild" dialog. */
+  onCreate: () => void;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ export function GuildSidebar({
   onSelect,
   onHome,
   homeActive,
+  onCreate,
   className,
 }: Props) {
   return (
@@ -38,6 +41,8 @@ export function GuildSidebar({
           onClick={() => onSelect(g.id)}
         />
       ))}
+      <Divider />
+      <CreateGuildButton onClick={onCreate} />
     </aside>
   );
 }
@@ -135,6 +140,45 @@ function GuildButton({
         ) : (
           initial
         )}
+      </span>
+    </button>
+  );
+}
+
+function CreateGuildButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Create a guild"
+      aria-label="Create a guild"
+      className="group relative flex h-12 w-12 items-center justify-center"
+    >
+      <span
+        className={clsx(
+          "flex h-12 w-12 items-center justify-center rounded-2xl text-white/55 transition-all duration-150",
+          "bg-white/[0.04]",
+          // On hover, mirror the active styling of a guild pill so
+          // the affordance is unmistakable. We intentionally don't
+          // tint it emerald on hover — that would imply "this is a
+          // guild you can open", which it isn't.
+          "group-hover:rounded-xl group-hover:bg-white/[0.10] group-hover:text-white",
+        )}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width={20}
+          height={20}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
       </span>
     </button>
   );
