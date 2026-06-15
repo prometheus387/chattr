@@ -3,10 +3,11 @@
 
 # -------------------------------- Backend --------------------------------
 
-# Chattr.Api
-chattr_Backend/Chattr.Api/appsettings.Development.json
+# Chattr.Api — appsettings.json (baseline, no secrets) and the dev
+# override (with throwaway dev secrets) are committed. Production
+# values go in appsettings.Production.json (gitignored) or, better,
+# in env vars / a real secret store — see docs/SETUP_BACKEND_SECRETS.md.
 chattr_Backend/Chattr.Api/appsettings.Production.json
-chattr_Backend/Chattr.Api/appsettings.json
 
 .vscode
 .vscode/settings.json
