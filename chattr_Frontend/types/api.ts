@@ -98,6 +98,21 @@ export interface RolePermissions {
   bypassSlowmode: boolean;
 }
 
+/**
+ * Active guild ban. Returned by `GET /api/guilds/{id}/bans` and
+ * by the POST handler when a ban is created / refreshed.
+ */
+export interface GuildBan {
+  id: number;
+  userId: number;
+  username: string;
+  displayName: string;
+  bannedById: number;
+  bannedByUsername: string;
+  bannedAt: string;
+  reason: string | null;
+}
+
 /** Payload for PATCH /api/guilds/{id}/roles/{roleId}. */
 export interface UpdateRolePayload {
   name?: string;

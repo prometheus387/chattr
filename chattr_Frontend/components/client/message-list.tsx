@@ -1,12 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import clsx from "clsx";
-import type { Message, Role } from "@/types/client";
+import type { GuildMember, Message, Role } from "@/types/client";
+
+/**
+ * Permission snapshot the chat / user-list pass down so the
+ * context menu (rendered at the page level) can decide which
+ * actions to surface. Mirrors the `viewer` prop on
+ * `<MemberContextMenu>`.
+ */
+export interface ViewerPermissions {
+  canAssign: boolean;
+  canKick: boolean;
+  canBan: boolean;
+}
 
 interface Props {
   messages: Message[];
   className?: string;
+  /**
+   * Members of the current guild. Used to resolve a `Message`
+   * (which carries the author id + role colour but not the
+   * full member row) to a clickable `GuildMember` for the
+   * right-click / left-click context menu.
+   */
+  members?: GuildMember[];
+  /**
+   * Roles of the current guild. Passed through to the
+   * context menu so it can offer "Assign role" without
+   * having to re-fetch.
+   */
+  roles?: Role[];
+  /**
+   * Members the viewer is not allowed to moderate. Built by
+   * the page using the role hierarchy; we use it to decide
+   * whether to even bind click handlers to a message's
+   * author span (a 403-bound click is more frustrating than
+   * a no-op).
+   */
+  untargetableIds?: Set<number>;
+  viewerUserId?: number;
+  viewer?: ViewerPermissions;
+  /**
+   * Called when the user activates the author span (left or
+   * right click). The page opens the page-level context menu
+   * at the supplied viewport coordinates.
+   */
+  onMemberAction?: (
+    member: GuildMember,
+    x: number,
+    y: number,
+  ) => void;
 }
 
 function formatTime(iso: string): string {
@@ -46,7 +91,16 @@ function RoleIcon({ svg, className }: { svg: string | null; className?: string }
   );
 }
 
-export function MessageList({ messages, className }: Props) {
+export function MessageList({
+  messages,
+  className,
+  members,
+  roles: _roles,
+  untargetableIds,
+  viewerUserId,
+  viewer,
+  onMemberAction,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll to the bottom when new messages arrive — but only if the
@@ -57,6 +111,37 @@ export function MessageList({ messages, className }: Props) {
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
+
+  // Build a quick lookup so the click handler doesn't have to
+  // walk the whole member list per row.
+  const memberById = useMemo(() => {
+    const map = new Map<number, GuildMember>();
+    if (members) for (const m of members) map.set(m.userId, m);
+    return map;
+  }, [members]);
+
+  /**
+   * Activate the per-guild context menu on the author span.
+   * The handler is shared between left and right click — both
+   * open the same menu, with right click also suppressing the
+   * browser's native menu.
+   *
+   * Bound to `onMouseDown` rather than `onClick` so the click
+   * fires before the browser starts a text selection. A
+   * selection on the username (a `<span>`-worth of text) would
+   * otherwise consume the click AND make the next right-click
+   * surface the browser's "Copy / Paste" native menu on top
+   * of our own. `preventDefault` on mousedown kills the
+   * selection outright.
+   */
+  const onAuthorActivate = (
+    member: GuildMember,
+    e: ReactMouseEvent<HTMLSpanElement | HTMLButtonElement>,
+  ) => {
+    if (!onMemberAction) return;
+    e.preventDefault();
+    onMemberAction(member, e.clientX, e.clientY);
+  };
 
   if (messages.length === 0) {
     return (
@@ -81,6 +166,17 @@ export function MessageList({ messages, className }: Props) {
             !!prev &&
             prev.authorId === m.authorId &&
             new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60_000;
+          // Resolve the message's author to a `GuildMember` so
+          // the context menu gets the full row (role id,
+          // isOwner, etc.). If the author isn't in the
+          // member list (e.g. they left mid-view) we still
+          // want the chat to render — we just don't bind a
+          // click handler.
+          const member = memberById.get(m.authorId);
+          const canActivate =
+            !!member &&
+            !!onMemberAction &&
+            member.userId !== viewerUserId;
           return (
             <li
               key={m.id}
@@ -112,16 +208,46 @@ export function MessageList({ messages, className }: Props) {
                       // The colour follows the username — we set
                       // it on the wrapper span via inline style.
                     />
-                    <span
-                      className="text-[13.5px] font-semibold"
-                      style={
-                        m.authorRoleColor
-                          ? { color: m.authorRoleColor }
-                          : { color: "rgba(255,255,255,0.9)" }
-                      }
-                    >
-                      {m.authorName}
-                    </span>
+                    {canActivate ? (
+                      <button
+                        type="button"
+                        // Both left- and right-click open the
+                        // same menu. onMouseDown fires before
+                        // the browser starts a text selection;
+                        // without it the click on a non-button
+                        // text would either do nothing (the
+                        // selection swallows it) or, on the
+                        // next right-click, surface the
+                        // browser's "Copy / Paste" native
+                        // menu. The `select-none` class is a
+                        // belt-and-suspenders guard against
+                        // double-click selection.
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return; // left only
+                          onAuthorActivate(member!, e);
+                        }}
+                        onContextMenu={(e) => onAuthorActivate(member!, e)}
+                        className="cursor-pointer text-left text-[13.5px] font-semibold select-none hover:underline focus:outline-none focus-visible:underline"
+                        style={
+                          m.authorRoleColor
+                            ? { color: m.authorRoleColor }
+                            : { color: "rgba(255,255,255,0.9)" }
+                        }
+                      >
+                        {m.authorName}
+                      </button>
+                    ) : (
+                      <span
+                        className="text-[13.5px] font-semibold"
+                        style={
+                          m.authorRoleColor
+                            ? { color: m.authorRoleColor }
+                            : { color: "rgba(255,255,255,0.9)" }
+                        }
+                      >
+                        {m.authorName}
+                      </span>
+                    )}
                     <span className="text-[10.5px] text-white/35">
                       {formatTime(m.createdAt)}
                     </span>

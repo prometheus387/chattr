@@ -1,28 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import clsx from "clsx";
 import type { Channel, ChannelKind, DmSummary } from "@/types/client";
 import { GuildHeader } from "@/components/client/guild-header";
+import { ChannelEditModal, DeleteChannelConfirm } from "@/components/client/channel-modals";
+import { DmContextMenu } from "@/components/client/dm-context-menu";
 
 export type SidebarMode =
-  | { kind: "guild"; guildHeader: GuildHeaderInfo | null; channels: Channel[]; activeChannelId: number | null; onSelectChannel: (id: number) => void; onLeaveGuild: () => void; onOpenSettings: () => void; leavingGuild: boolean; leaveError: string | null }
-  | { kind: "friends"; dms: DmSummary[]; activeDmId: number | null; onSelectDm: (id: number) => void; onStartNewDm: () => void };
+  | { kind: "guild"; guildHeader: GuildHeaderInfo | null; channels: Channel[]; activeChannelId: number | null; onSelectChannel: (id: number) => void; onLeaveGuild: () => void; onOpenSettings: () => void; onInvite: () => void; leavingGuild: boolean; leaveError: string | null }
+  | { kind: "friends"; dms: DmSummary[]; activeDmId: number | null; onSelectDm: (id: number) => void; onStartNewDm: () => void; onDmContextMenu?: (dm: DmSummary, x: number, y: number) => void };
 
 interface GuildHeaderInfo {
   name: string;
   isOwner: boolean;
   isAdministrator: boolean;
+  canManageRoles: boolean;
+  canManageChannels: boolean;
+  canCreateInvite: boolean;
 }
 
 interface Props {
   mode: SidebarMode;
   className?: string;
+  /**
+   * Forwarded to the channel context menu. The page holds
+   * the state for the menu / edit / delete modals so the
+   * sidebar stays a presentational component.
+   */
+  onChannelContextMenu?: (channel: Channel, x: number, y: number) => void;
+  /**
+   * Called after a drag-drop reorder. The page turns the
+   * (draggedChannel, targetChannel, position) tuple into a
+   * `PATCH /api/guilds/{id}/channels/{channelId}` call.
+   */
+  onChannelReorder?: (
+    dragged: Channel,
+    target: Channel,
+    position: "before" | "after",
+  ) => void;
 }
 
-const DEFAULT_OPEN_CATEGORIES: ReadonlySet<string> = new Set();
-
-export function ChannelSidebar({ mode, className }: Props) {
+export function ChannelSidebar({ mode, className, onChannelContextMenu, onChannelReorder }: Props) {
   if (mode.kind === "friends") {
     return (
       <FriendsSidebar
@@ -30,6 +49,7 @@ export function ChannelSidebar({ mode, className }: Props) {
         activeDmId={mode.activeDmId}
         onSelectDm={mode.onSelectDm}
         onStartNewDm={mode.onStartNewDm}
+        onDmContextMenu={mode.onDmContextMenu}
         className={className}
       />
     );
@@ -42,8 +62,11 @@ export function ChannelSidebar({ mode, className }: Props) {
       guildHeader={mode.guildHeader}
       onLeaveGuild={mode.onLeaveGuild}
       onOpenSettings={mode.onOpenSettings}
+      onInvite={mode.onInvite}
       leavingGuild={mode.leavingGuild}
       leaveError={mode.leaveError}
+      onChannelContextMenu={onChannelContextMenu}
+      onChannelReorder={onChannelReorder}
       className={className}
     />
   );
@@ -58,12 +81,14 @@ function FriendsSidebar({
   activeDmId,
   onSelectDm,
   onStartNewDm,
+  onDmContextMenu,
   className,
 }: {
   dms: DmSummary[];
   activeDmId: number | null;
   onSelectDm: (id: number) => void;
   onStartNewDm: () => void;
+  onDmContextMenu?: (dm: DmSummary, x: number, y: number) => void;
   className?: string;
 }) {
   return (
@@ -107,6 +132,11 @@ function FriendsSidebar({
                   dm={d}
                   active={d.id === activeDmId}
                   onClick={() => onSelectDm(d.id)}
+                  onContextMenu={
+                    onDmContextMenu
+                      ? (e) => onDmContextMenu(d, e.clientX, e.clientY)
+                      : undefined
+                  }
                 />
               </li>
             ))}
@@ -121,19 +151,34 @@ function DmRow({
   dm,
   active,
   onClick,
+  onContextMenu,
 }: {
   dm: DmSummary;
   active: boolean;
   onClick: () => void;
+  onContextMenu?: (e: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   const initial = (dm.otherDisplayName || dm.otherUsername).trim().charAt(0).toUpperCase() || "?";
   const preview = dm.lastMessagePreview ?? "No messages yet";
   return (
     <button
       type="button"
-      onClick={onClick}
+      // onMouseDown (not onClick) so the click fires before
+      // the browser starts a text selection — without it
+      // a left-click on the username either does nothing
+      // (selection swallows it) or surfaces the browser's
+      // "Copy / Paste" native menu on the next right-click.
+      onMouseDown={(e) => {
+        if (e.button !== 0) return; // left button only
+        e.preventDefault();
+        onClick();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(e);
+      }}
       className={clsx(
-        "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors",
+        "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors select-none",
         active
           ? "bg-white/[0.07] text-white"
           : "text-white/65 hover:bg-white/[0.04] hover:text-white/90",
@@ -167,9 +212,16 @@ interface GuildBodyProps {
   guildHeader: GuildHeaderInfo | null;
   onLeaveGuild: () => void;
   onOpenSettings: () => void;
+  onInvite: () => void;
   leavingGuild: boolean;
   leaveError: string | null;
   className?: string;
+  onChannelContextMenu?: (channel: Channel, x: number, y: number) => void;
+  onChannelReorder?: (
+    dragged: Channel,
+    target: Channel,
+    position: "before" | "after",
+  ) => void;
 }
 
 function bucketByCategory(channels: Channel[]): { name: string; channels: Channel[] }[] {
@@ -181,7 +233,7 @@ function bucketByCategory(channels: Channel[]): { name: string; channels: Channe
     map.set(key, list);
   }
   return Array.from(map.entries())
-    .map(([name, channels]) => ({ name, channels }))
+    .map(([name, list]) => ({ name, channels: list }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -192,10 +244,14 @@ function GuildSidebarBody({
   guildHeader,
   onLeaveGuild,
   onOpenSettings,
+  onInvite,
   leavingGuild,
   leaveError,
+  onChannelContextMenu,
+  onChannelReorder,
   className,
 }: GuildBodyProps) {
+  // ---- Section open / closed state ---------------------------------------
   // We track the *closed* categories, not the open ones — that way
   // the default ("empty closed set") means "everything is open", and
   // new categories that appear later (e.g. after a channel is created)
@@ -204,10 +260,6 @@ function GuildSidebarBody({
     () => new Set(),
   );
 
-  // When the channel list changes — typically when the user switches
-  // guilds — reset the closed set so every category in the new guild
-  // starts expanded. (Use `channels` as the dep, not `buckets`: buckets
-  // is a fresh array every render, which would loop the effect.)
   useEffect(() => {
     setClosedCategories(new Set());
   }, [channels]);
@@ -221,7 +273,78 @@ function GuildSidebarBody({
     });
   };
 
+  // ---- Drag state ---------------------------------------------------------
+  // We track *which* channel is being dragged and *which* channel
+  // is currently the drop target, plus whether the drop would land
+  // before or after it. The visual cue (a 1px line above/below the
+  // target row) reads naturally as "the dragged row will land here".
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<
+    | { channelId: number; position: "before" | "after" }
+    | null
+  >(null);
+
+  const onDragStart = (channel: Channel, e: ReactDragEvent<HTMLLIElement>) => {
+    if (!onChannelReorder) return;
+    setDraggingId(channel.id);
+    // `dataTransfer` is required for the drag to register in
+    // Firefox; some browsers ignore `draggable=true` if it's
+    // empty. We use the JSON payload to round-trip the
+    // channel id through the drop event.
+    e.dataTransfer.setData("application/x-chattr-channel-id", String(channel.id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDragEnd = () => {
+    setDraggingId(null);
+    setDropTarget(null);
+  };
+
+  const onDragOverChannel = (
+    channel: Channel,
+    position: "before" | "after",
+    e: ReactDragEvent<HTMLLIElement>,
+  ) => {
+    if (!onChannelReorder) return;
+    if (draggingId === null || draggingId === channel.id) return;
+    e.preventDefault(); // marks the row as a valid drop target
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget((prev) => {
+      if (prev?.channelId === channel.id && prev.position === position) {
+        return prev;
+      }
+      return { channelId: channel.id, position };
+    });
+  };
+
+  const onDropChannel = (
+    channel: Channel,
+    e: ReactDragEvent<HTMLLIElement>,
+  ) => {
+    e.preventDefault();
+    if (!onChannelReorder || draggingId === null) return;
+    const position = dropTarget?.channelId === channel.id ? dropTarget.position : "before";
+    const dragged = channels.find((c) => c.id === draggingId);
+    if (!dragged || dragged.id === channel.id) {
+      setDraggingId(null);
+      setDropTarget(null);
+      return;
+    }
+    onChannelReorder(dragged, channel, position);
+    setDraggingId(null);
+    setDropTarget(null);
+  };
+
+  // Bucket the channels. The drag layer sits *on top* of the
+  // existing layout — we still render the same `<ul>` per
+  // category, but each row gets drag handlers + a visual
+  // insertion-line indicator when it's the active drop target.
   const buckets = bucketByCategory(channels);
+  // The user needs `canManageChannels` to drag channels
+  // around. We pass that to the row so it can mark itself
+  // `draggable=false` (and the cursor stays a pointer, not a
+  // grab cursor, when the user can't move it).
+  const canDrag = !!onChannelReorder;
 
   return (
     <aside
@@ -236,9 +359,14 @@ function GuildSidebarBody({
           guildName={guildHeader.name}
           isOwner={guildHeader.isOwner}
           isAdministrator={guildHeader.isAdministrator}
+          canManageGuild={guildHeader.isAdministrator}
+          canManageRoles={guildHeader.canManageRoles}
+          canManageChannels={guildHeader.canManageChannels}
+          canCreateInvite={guildHeader.canCreateInvite}
           busy={leavingGuild}
           errorMessage={leaveError}
           onLeave={onLeaveGuild}
+          onInvite={onInvite}
           onSettings={onOpenSettings}
         />
       ) : (
@@ -269,13 +397,27 @@ function GuildSidebarBody({
               {open && (
                 <ul className="mt-0.5 flex flex-col gap-0.5">
                   {bucket.channels.map((c) => (
-                    <li key={c.id}>
-                      <ChannelButton
-                        channel={c}
-                        active={c.id === activeChannelId}
-                        onClick={() => onSelectChannel(c.id)}
-                      />
-                    </li>
+                    <ChannelRow
+                      key={c.id}
+                      channel={c}
+                      active={c.id === activeChannelId}
+                      draggable={canDrag}
+                      isDragging={draggingId === c.id}
+                      dropIndicator={
+                        dropTarget?.channelId === c.id
+                          ? dropTarget.position
+                          : null
+                      }
+                      onSelect={() => onSelectChannel(c.id)}
+                      onContextMenu={(e) =>
+                        onChannelContextMenu?.(c, e.clientX, e.clientY)
+                      }
+                      onDragStart={(e) => onDragStart(c, e)}
+                      onDragEnd={onDragEnd}
+                      onDragOverBefore={(e) => onDragOverChannel(c, "before", e)}
+                      onDragOverAfter={(e) => onDragOverChannel(c, "after", e)}
+                      onDrop={(e) => onDropChannel(c, e)}
+                    />
                   ))}
                 </ul>
               )}
@@ -284,6 +426,133 @@ function GuildSidebarBody({
         })}
       </nav>
     </aside>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Channel row                                                               */
+/* -------------------------------------------------------------------------- */
+
+interface ChannelRowProps {
+  channel: Channel;
+  active: boolean;
+  draggable: boolean;
+  isDragging: boolean;
+  /**
+   * `'before'` / `'after'` when this row is the active drop
+   * target, null otherwise. The row renders a 1px line above
+   * or below itself to communicate the insertion point.
+   */
+  dropIndicator: "before" | "after" | null;
+  onSelect: () => void;
+  onContextMenu: (e: ReactMouseEvent<HTMLLIElement>) => void;
+  onDragStart: (e: ReactDragEvent<HTMLLIElement>) => void;
+  onDragEnd: () => void;
+  onDragOverBefore: (e: ReactDragEvent<HTMLLIElement>) => void;
+  onDragOverAfter: (e: ReactDragEvent<HTMLLIElement>) => void;
+  onDrop: (e: ReactDragEvent<HTMLLIElement>) => void;
+}
+
+function ChannelRow({
+  channel,
+  active,
+  draggable,
+  isDragging,
+  dropIndicator,
+  onSelect,
+  onContextMenu,
+  onDragStart,
+  onDragEnd,
+  onDragOverBefore,
+  onDragOverAfter,
+  onDrop,
+}: ChannelRowProps) {
+  return (
+    <li
+      // The row is split into two drop-zones (top half +
+      // bottom half) so the user can place the dragged
+      // channel "before" or "after" without having to drag
+      // a pixel-perfect target. The handler decides which
+      // side the cursor is on via the element's bounding
+      // rect.
+      onDragOver={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY < midpoint) onDragOverBefore(e);
+        else onDragOverAfter(e);
+      }}
+      onDrop={(e) => {
+        // Same midpoint logic for the drop — we use the
+        // indicator state the dragover set so the two
+        // events always agree.
+        onDrop(e);
+      }}
+      onDragLeave={(e) => {
+        // `relatedTarget` is what the cursor is moving
+        // INTO. If it stays inside this row we don't
+        // want to clear the indicator; only clear when
+        // the cursor leaves the row entirely.
+        const next = e.relatedTarget as Node | null;
+        if (next && e.currentTarget.contains(next)) return;
+        // (Don't touch dropTarget here — the parent owns
+        // it, and the next dragover on a sibling will
+        // overwrite it. Clearing here would cause a
+        // flicker as the cursor crosses the row boundary.)
+      }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      // onMouseDown (not onClick) so the click fires before
+      // the browser starts a text selection. `e.button` is
+      // checked so middle-click and right-click don't open
+      // the channel (those go through onContextMenu).
+      onMouseDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        onSelect();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(e);
+      }}
+      className={clsx(
+        "relative",
+        isDragging && "opacity-40",
+      )}
+    >
+      {/* Insertion line above the row, drawn when this row
+          is the active "before" target. We use a
+          pseudo-element-friendly border on a 1px-tall
+          absolute div. */}
+      {dropIndicator === "before" ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-px left-0 right-0 h-[2px] rounded-full bg-emerald-400"
+        />
+      ) : null}
+      <button
+        type="button"
+        // Suppress the native context menu on the button
+        // itself — the `<li>` handles it so the right-click
+        // works no matter where on the row the user clicks.
+        onContextMenu={(e) => e.preventDefault()}
+        className={clsx(
+          "flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[13.5px] transition-colors select-none",
+          active
+            ? "bg-white/[0.07] text-white"
+            : "text-white/65 hover:bg-white/[0.04] hover:text-white/90",
+        )}
+      >
+        <ChannelIcon kind={channel.kind} />
+        <span className="truncate">{channel.name}</span>
+      </button>
+      {dropIndicator === "after" ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-px left-0 right-0 h-[2px] rounded-full bg-emerald-400"
+        />
+      ) : null}
+    </li>
   );
 }
 
@@ -306,36 +575,10 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function ChannelButton({
-  channel,
-  active,
-  onClick,
-}: {
-  channel: Channel;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={clsx(
-        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13.5px] transition-colors",
-        active
-          ? "bg-white/[0.07] text-white"
-          : "text-white/65 hover:bg-white/[0.04] hover:text-white/90",
-      )}
-    >
-      <ChannelIcon kind={channel.kind} />
-      <span className="truncate">{channel.name}</span>
-    </button>
-  );
-}
-
 function ChannelIcon({ kind }: { kind: ChannelKind }) {
   if (kind === "Voice") {
     return (
-      <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-white/45">
+      <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-white/45" aria-hidden>
         <path d="M11 5 6 9H2v6h4l5 4z" />
         <path d="M15.5 8.5a5 5 0 0 1 0 7" />
         <path d="M18.5 5.5a9 9 0 0 1 0 13" />
@@ -343,7 +586,7 @@ function ChannelIcon({ kind }: { kind: ChannelKind }) {
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-white/45">
+    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-white/45" aria-hidden>
       <path d="M5 12h14" />
       <path d="M12 5v14" />
     </svg>

@@ -26,11 +26,25 @@ public class GuildDetailDto
     public bool IsOwner { get; init; }
     /// <summary>True iff the requesting user has a role with IsAdministrator.</summary>
     public bool IsAdministrator { get; init; }
+    /// <summary>True iff the requesting user has a role with CanManageChannels.</summary>
+    public bool CanManageChannels { get; init; }
+    /// <summary>True iff the requesting user has a role with CanManageRoles.</summary>
+    public bool CanManageRoles { get; init; }
+    /// <summary>True iff the requesting user can kick other members.</summary>
+    public bool CanKickMembers { get; init; }
+    /// <summary>True iff the requesting user can ban other members.</summary>
+    public bool CanBanMembers { get; init; }
+    /// <summary>
+    /// True iff the requesting user can create invite links.
+    /// Drives the "Invite people" entry in the guild header
+    /// dropdown.
+    /// </summary>
+    public bool CanCreateInvite { get; init; }
     public DateTime CreatedAt { get; init; }
 }
 
 /// <summary>
-/// A guild member with their role and permission flags, so the admin
+/// <summary>A guild member with their role and permission flags, so the admin
 /// UI can render a list without an extra round-trip per user.
 /// </summary>
 public class GuildMemberDto
@@ -47,4 +61,45 @@ public class GuildMemberDto
     public bool IsOwner { get; init; }
     public bool IsAdministrator { get; init; }
     public DateTime JoinedAt { get; init; }
+}
+
+/// <summary>
+/// Body for <c>POST /api/guilds/{id}/members</c>. The actor picks
+/// an existing platform user and a role in the guild; the server
+/// creates the <c>GuildMember</c> row with <c>IsOwner=false</c>.
+/// Owner promotion is a separate transfer-ownership flow.
+/// </summary>
+public class AddMemberDto
+{
+    public int UserId { get; set; }
+    public int RoleId { get; set; }
+}
+
+/// <summary>
+/// Body for <c>POST /api/guilds/{id}/bans</c>. The user is removed
+/// from the guild if they're still a member and a <c>GuildBan</c>
+/// row is created (or refreshed if one already exists). Reason is
+/// optional and capped at 500 chars on the server.
+/// </summary>
+public class BanMemberDto
+{
+    public int UserId { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Read-side view of an active ban. Returned by
+/// <c>GET /api/guilds/{id}/bans</c> and the POST handler's
+/// response so the client can show "who banned whom when".
+/// </summary>
+public class GuildBanDto
+{
+    public int Id { get; init; }
+    public int UserId { get; init; }
+    public string Username { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public int BannedById { get; init; }
+    public string BannedByUsername { get; init; } = string.Empty;
+    public DateTime BannedAt { get; init; }
+    public string? Reason { get; init; }
 }

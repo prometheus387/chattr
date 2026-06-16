@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 interface Props {
   disabled?: boolean;
@@ -11,6 +11,41 @@ interface Props {
 export function MessageInput({ disabled, onSend, placeholder }: Props) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Focus on mount. The parent re-mounts this component when the
+  // user switches channels / DMs (via the `key` prop), so this
+  // also covers "user clicked a new channel" without any extra
+  // plumbing. rAF gives the browser a tick to paint the input
+  // before the focus call — without it some browsers briefly
+  // drop the focus ring on a freshly-mounted textarea.
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      if (disabled) return;
+      textareaRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+    // We intentionally only run on mount. The post-send refocus
+    // is handled by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refocus the input after the user finishes sending. The
+  // `sending` flag transitions true → false when the request
+  // settles, regardless of success or failure — on failure the
+  // submit handler re-throws and the input is NOT cleared, but
+  // the focus reset is still correct (the user can edit and
+  // retry). When the request succeeded, `value` is already `""`
+  // by then, so the cursor lands on an empty line ready for the
+  // next message.
+  const prevSendingRef = useRef(false);
+  useEffect(() => {
+    const wasSending = prevSendingRef.current;
+    prevSendingRef.current = sending;
+    if (wasSending && !sending && !disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [sending, disabled]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,12 +67,27 @@ export function MessageInput({ disabled, onSend, placeholder }: Props) {
     >
       <div className="flex items-end gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2 transition-colors focus-within:border-white/20">
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            // Enter submits, Shift+Enter inserts a newline. We
+            // route Enter through the form's submit handler (via
+            // `requestSubmit()`) rather than calling `submit()`
+            // directly. The naive approach — both `onKeyDown`
+            // invoking `submit()` AND the form's `onSubmit` firing
+            // — fires the API call twice in a row, because the
+            // browser's "Enter in a textarea submits the parent
+            // form" default isn't always suppressed by
+            // `e.preventDefault()` on a synthetic keydown. One
+            // call path, no race.
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
               e.preventDefault();
-              void submit(e as unknown as FormEvent);
+              e.currentTarget.form?.requestSubmit();
             }
           }}
           placeholder={placeholder ?? "Message"}

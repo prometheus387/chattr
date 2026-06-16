@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import clsx from "clsx";
 import type { GuildMember, Role, UserPresence } from "@/types/client";
 import { isOnline } from "@/lib/presence";
+import type { ViewerPermissions } from "./message-list";
 
 interface Props {
   /** Members of the current guild, with their role metadata. */
@@ -17,6 +18,24 @@ interface Props {
   /** When true, show offline users too. Otherwise hide them. */
   showOffline: boolean;
   className?: string;
+  /**
+   * Members the viewer is not allowed to moderate. Used to
+   * gate the click handler so the cursor and affordances are
+   * only "active" for actually-targetable users.
+   */
+  untargetableIds?: Set<number>;
+  viewerUserId?: number;
+  viewer?: ViewerPermissions;
+  /**
+   * Activate the page-level context menu for a member. Both
+   * left and right click route through this — see the matching
+   * hookup in `MessageList`.
+   */
+  onMemberAction?: (
+    member: GuildMember,
+    x: number,
+    y: number,
+  ) => void;
 }
 
 /**
@@ -30,8 +49,22 @@ interface Props {
  * comes pre-sanitized from the server (see
  * Chattr.Infrastructure.Services.SvgSanitizer) so we render it
  * via dangerouslySetInnerHTML without re-sanitising.
+ *
+ * Left- or right-clicking a row opens the page-level member
+ * context menu at the click point. The cursor changes to a
+ * pointer for any row that's actually targetable (not the
+ * viewer, not the owner, not over-tier).
  */
-export function UserList({ members, roles, presences, showOffline, className }: Props) {
+export function UserList({
+  members,
+  roles,
+  presences,
+  showOffline,
+  className,
+  untargetableIds,
+  viewerUserId,
+  onMemberAction,
+}: Props) {
   // Look up presence by userId. We can't assume the same
   // ordering or that every member has a presence row (the
   // presence endpoint is platform-wide, not guild-scoped).
@@ -53,6 +86,16 @@ export function UserList({ members, roles, presences, showOffline, className }: 
   // section each) and "members bucket" (everyone else). Roles
   // are already sorted highest-first from the server; we just
   // need to walk them in order and pick out which has members.
+  //
+  // Important: only roles with `displaySeparately=true` get
+  // their own section. A role like `@everyone` is the default
+  // tier — by design it does NOT get its own group, and its
+  // members flow into the catch-all "Members" bucket. The
+  // previous version pushed every role-with-members into
+  // `out` and then re-pushed every non-displaySeparately
+  // member into the bucket, which meant @everyone members
+  // (the owner included) appeared twice — once under their
+  // own section and once under "Members".
   const sections = useMemo(() => {
     const byRole = new Map<number, GuildMember[]>();
     for (const m of members) {
@@ -62,22 +105,52 @@ export function UserList({ members, roles, presences, showOffline, className }: 
     }
     const out: Array<{ role: Role; members: GuildMember[] }> = [];
     const unassigned: GuildMember[] = [];
+    const displaySeparatelyIds = new Set(
+      roles.filter((r) => r.displaySeparately).map((r) => r.id),
+    );
     for (const role of roles) {
+      if (!role.displaySeparately) continue; // skip — its members go to the bucket
       const list = byRole.get(role.id);
       if (list && list.length > 0) {
         out.push({ role, members: list });
       }
     }
     // Anything not on a DisplaySeparately role goes to the
-    // catch-all Members bucket.
-    const displaySeparatelyIds = new Set(
-      roles.filter((r) => r.displaySeparately).map((r) => r.id),
-    );
+    // catch-all Members bucket. This includes @everyone.
     for (const m of members) {
       if (!displaySeparatelyIds.has(m.roleId)) unassigned.push(m);
     }
     return { displaySeparately: out, others: unassigned };
   }, [members, roles]);
+
+  // Single click handler shared by every row — kept here so
+  // the row component doesn't have to re-create it. We bind
+  // it to `onMouseDown` rather than `onClick` so the click
+  // fires before the browser has a chance to start a text
+  // selection. A text selection on the username (the only
+  // visible content of the row) would otherwise consume the
+  // click and surface the browser's "Copy / Paste" native
+  // menu on the next right-click — the user perceives that
+  // as "the context menu didn't open". `preventDefault` on
+  // the mousedown also kills the selection outright.
+  const onRowMouseDown = (
+    member: GuildMember,
+    e: ReactMouseEvent<HTMLLIElement>,
+  ) => {
+    if (!onMemberAction) return;
+    if (e.button !== 0) return; // left button only
+    e.preventDefault();
+    onMemberAction(member, e.clientX, e.clientY);
+  };
+
+  const onRowContextMenu = (
+    member: GuildMember,
+    e: ReactMouseEvent<HTMLLIElement>,
+  ) => {
+    if (!onMemberAction) return;
+    e.preventDefault(); // suppress the browser's native menu
+    onMemberAction(member, e.clientX, e.clientY);
+  };
 
   return (
     <aside
@@ -86,9 +159,10 @@ export function UserList({ members, roles, presences, showOffline, className }: 
         className,
       )}
     >
-      <div className="px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wider text-white/40">
-        Users ({members.length})
-      </div>
+      {/* No header — the section labels (Admin / Mod / Members)
+          already tell the user what this column is. The old
+          "Users (N)" line just duplicated the count every
+          section header already carries. */}
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         {sections.displaySeparately.map(({ role, members: ms }) => (
           <RoleSection
@@ -99,6 +173,10 @@ export function UserList({ members, roles, presences, showOffline, className }: 
             members={ms}
             presenceById={presenceById}
             showOffline={showOffline}
+            untargetableIds={untargetableIds}
+            viewerUserId={viewerUserId}
+            onRowMouseDown={onRowMouseDown}
+            onRowContextMenu={onRowContextMenu}
           />
         ))}
         {sections.others.length > 0 && (
@@ -111,6 +189,10 @@ export function UserList({ members, roles, presences, showOffline, className }: 
             members={sections.others}
             presenceById={presenceById}
             showOffline={showOffline}
+            untargetableIds={untargetableIds}
+            viewerUserId={viewerUserId}
+            onRowMouseDown={onRowMouseDown}
+            onRowContextMenu={onRowContextMenu}
           />
         )}
       </div>
@@ -125,6 +207,10 @@ interface RoleSectionProps {
   members: GuildMember[];
   presenceById: Map<number, UserPresence>;
   showOffline: boolean;
+  untargetableIds?: Set<number>;
+  viewerUserId?: number;
+  onRowMouseDown: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
+  onRowContextMenu: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
 }
 
 function RoleSection({
@@ -134,6 +220,10 @@ function RoleSection({
   members,
   presenceById,
   showOffline,
+  untargetableIds,
+  viewerUserId,
+  onRowMouseDown,
+  onRowContextMenu,
 }: RoleSectionProps) {
   return (
     <div className="mb-3">
@@ -160,6 +250,18 @@ function RoleSection({
             member={m}
             presence={presenceById.get(m.userId) ?? null}
             showOffline={showOffline}
+            // Owners are always untargetable (server refuses
+            // to kick/ban them). The viewer is also excluded
+            // — no point showing a menu whose only "action"
+            // would be no-op.
+            isClickable={
+              !!untargetableIds &&
+              viewerUserId !== undefined &&
+              !untargetableIds.has(m.userId) &&
+              m.userId !== viewerUserId
+            }
+            onRowMouseDown={onRowMouseDown}
+            onRowContextMenu={onRowContextMenu}
           />
         ))}
       </ul>
@@ -171,10 +273,16 @@ function UserRow({
   member,
   presence,
   showOffline,
+  isClickable,
+  onRowMouseDown,
+  onRowContextMenu,
 }: {
   member: GuildMember;
   presence: UserPresence | null;
   showOffline: boolean;
+  isClickable: boolean;
+  onRowMouseDown: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
+  onRowContextMenu: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
 }) {
   const online = presence ? isOnline(presence) : false;
   if (!online && !showOffline) return null;
@@ -183,7 +291,31 @@ function UserRow({
     (member.displayName || member.username).trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <li className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.04]">
+    <li
+      // Bind to onMouseDown rather than onClick so the click
+      // fires before the browser starts a text selection —
+      // see the matching note on `onRowMouseDown` in the
+      // parent. We also suppress text selection with the
+      // `select-none` class so a stray double-click on the
+      // username doesn't leave a half-selected name behind.
+      onMouseDown={
+        isClickable
+          ? (e) => onRowMouseDown(member, e)
+          : undefined
+      }
+      onContextMenu={
+        isClickable
+          ? (e) => onRowContextMenu(member, e)
+          : undefined
+      }
+      className={clsx(
+        "flex select-none items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+        isClickable
+          ? "cursor-pointer hover:bg-white/[0.06]"
+          : "hover:bg-white/[0.04]",
+        online ? "" : "opacity-60",
+      )}
+    >
       <span className="relative grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-[11px] font-semibold text-emerald-200/90">
         {initial}
         <span
@@ -203,10 +335,7 @@ function UserRow({
         />
       )}
       <span
-        className={clsx(
-          "truncate text-[13px]",
-          online ? "" : "opacity-60",
-        )}
+        className="truncate text-[13px]"
         style={member.roleColor ? { color: member.roleColor } : undefined}
       >
         {member.displayName}

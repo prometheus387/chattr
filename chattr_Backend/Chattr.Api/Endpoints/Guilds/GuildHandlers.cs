@@ -127,6 +127,16 @@ public static class GuildHandlers
                 MemberCount = 1,
                 IsOwner = true,
                 IsAdministrator = true,
+                // The owner is the universal bypass in
+                // GuildPermissionService, so every tab-visibility /
+                // moderation flag is true for them — they can manage
+                // channels, roles, kick, ban and issue invites
+                // from the moment the guild exists.
+                CanManageChannels = true,
+                CanManageRoles = true,
+                CanKickMembers = true,
+                CanBanMembers = true,
+                CanCreateInvite = true,
             });
     }
 
@@ -143,8 +153,8 @@ public static class GuildHandlers
         if (userId is null) return Results.Unauthorized();
 
         // Pull every member-row for the user, joined with the
-        // permissions table so we can return IsAdministrator without a
-        // second round-trip per guild.
+        // permissions table so we can return IsAdministrator / CanManage*
+        // without a second round-trip per guild.
         var rows = await context.GuildMembers
             .AsNoTracking()
             .Where(m => m.UserId == userId.Value)
@@ -156,6 +166,11 @@ public static class GuildHandlers
                 MemberCount = m.Guild!.Members.Count,
                 m.IsOwner,
                 IsAdmin = m.Role!.Permissions!.IsAdministrator,
+                CanManageChannels = m.Role!.Permissions!.CanManageChannels,
+                CanManageRoles = m.Role!.Permissions!.CanManageRoles,
+                CanKickMembers = m.Role!.Permissions!.CanKickMembers,
+                CanBanMembers = m.Role!.Permissions!.CanBanMembers,
+                CanCreateInvite = m.Role!.Permissions!.CanCreateInvite,
             })
             .ToListAsync(ct);
 
@@ -166,7 +181,18 @@ public static class GuildHandlers
             IconUrl = r.IconUrl,
             MemberCount = r.MemberCount,
             IsOwner = r.IsOwner,
-            IsAdministrator = r.IsAdmin,
+            // Owners always pass `IsGuildAdminAsync` server-side via
+            // the `IsOwner` short-circuit, so the client has to
+            // treat them the same way: an owner with no admin-role
+            // is still an admin of their guild. Without the `||
+            // r.IsOwner` here the sidebar would show "Member" and
+            // hide the settings entry after every reload.
+            IsAdministrator = r.IsOwner || r.IsAdmin,
+            CanManageChannels = r.IsOwner || r.IsAdmin || r.CanManageChannels,
+            CanManageRoles = r.IsOwner || r.IsAdmin || r.CanManageRoles,
+            CanKickMembers = r.IsOwner || r.IsAdmin || r.CanKickMembers,
+            CanBanMembers = r.IsOwner || r.IsAdmin || r.CanBanMembers,
+            CanCreateInvite = r.IsOwner || r.IsAdmin || r.CanCreateInvite,
         }).OrderBy(g => g.Name).ToList());
     }
 
@@ -200,6 +226,11 @@ public static class GuildHandlers
                 MemberCount = m.Guild!.Members.Count,
                 m.IsOwner,
                 IsAdmin = m.Role!.Permissions!.IsAdministrator,
+                CanManageChannels = m.Role!.Permissions!.CanManageChannels,
+                CanManageRoles = m.Role!.Permissions!.CanManageRoles,
+                CanKickMembers = m.Role!.Permissions!.CanKickMembers,
+                CanBanMembers = m.Role!.Permissions!.CanBanMembers,
+                CanCreateInvite = m.Role!.Permissions!.CanCreateInvite,
             })
             .FirstAsync(ct);
 
@@ -210,9 +241,65 @@ public static class GuildHandlers
             IconUrl = row.IconUrl,
             MemberCount = row.MemberCount,
             IsOwner = row.IsOwner,
-            IsAdministrator = row.IsAdmin,
+            // Same OR-with-IsOwner fix as in GetMyGuilds — the
+            // owner is the universal admin bypass in
+            // GuildPermissionService, so the client should see
+            // them as admin here too.
+            IsAdministrator = row.IsOwner || row.IsAdmin,
+            CanManageChannels = row.IsOwner || row.IsAdmin || row.CanManageChannels,
+            CanManageRoles = row.IsOwner || row.IsAdmin || row.CanManageRoles,
+            CanKickMembers = row.IsOwner || row.IsAdmin || row.CanKickMembers,
+            CanBanMembers = row.IsOwner || row.IsAdmin || row.CanBanMembers,
+            CanCreateInvite = row.IsOwner || row.IsAdmin || row.CanCreateInvite,
             CreatedAt = row.CreatedAt,
         });
+    }
+
+    // ---- helpers ------------------------------------------------------------
+
+    /// <summary>
+    /// Builds a <see cref="GuildMemberDto"/> for one specific member.
+    /// Used by <see cref="AddMember"/> to return the freshly-inserted
+    /// row in the same shape as <see cref="GetGuildMembers"/>, so the
+    /// client can splice the new entry into its existing list without
+    /// a second round-trip.
+    /// </summary>
+    private static async Task<GuildMemberDto> GetMemberDtoAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct)
+    {
+        var m = await context.GuildMembers
+            .AsNoTracking()
+            .Where(x => x.GuildId == guildId && x.UserId == userId)
+            .Select(x => new
+            {
+                x.UserId,
+                Username = x.User!.Username,
+                DisplayName = string.IsNullOrEmpty(x.User!.DisplayName) ? x.User!.Username : x.User!.DisplayName,
+                AvatarUrl = x.User!.AvatarUrl,
+                x.RoleId,
+                RoleName = x.Role!.Name,
+                RoleColor = x.Role!.Color,
+                RoleIconSvg = x.Role!.IconSvg,
+                x.IsOwner,
+                IsAdmin = x.Role!.Permissions!.IsAdministrator,
+                x.JoinedAt,
+            })
+            .FirstAsync(ct);
+
+        return new GuildMemberDto
+        {
+            UserId = m.UserId,
+            Username = m.Username,
+            DisplayName = m.DisplayName,
+            AvatarUrl = m.AvatarUrl,
+            RoleId = m.RoleId,
+            RoleName = m.RoleName,
+            RoleColor = m.RoleColor,
+            RoleIconSvg = m.RoleIconSvg,
+            IsOwner = m.IsOwner,
+            IsAdministrator = m.IsAdmin,
+            JoinedAt = m.JoinedAt,
+        };
     }
 
     /// <summary>
@@ -332,7 +419,97 @@ public static class GuildHandlers
             IsOwner = await context.GuildMembers
                 .AnyAsync(m => m.GuildId == guildId && m.UserId == userId.Value && m.IsOwner, ct),
             IsAdministrator = true,
+            // Same as CreateGuild: the server only lets admins reach
+            // this endpoint, so the moderation flags are also true.
+            CanManageChannels = true,
+            CanManageRoles = true,
+            CanKickMembers = true,
+            CanBanMembers = true,
+            CanCreateInvite = true,
         });
+    }
+
+    /// <summary>
+    /// Adds an existing platform user to the guild with a chosen
+    /// role. Permission gate: owner / IsAdministrator / CanManageRoles
+    /// (same as the role-assignment endpoint, since adding someone
+    /// is just a stronger form of the same operation). 404 if the
+    /// user or the target role don't exist; 409 if the user is
+    /// already a member.
+    ///
+    /// Unlike the invite-link flow, this skips the user-side
+    /// consent step: the assumption is the admin is acting on
+    /// behalf of a user who's already in the room (think "I just
+    /// hired Bob, drop him in #engineering with the Engineer role").
+    /// </summary>
+    public static async Task<IResult> AddMember(
+        int guildId,
+        AddMemberDto dto,
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var actorId = principal.UserIdOrNull();
+        if (actorId is null) return Results.Unauthorized();
+
+        if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.NotFound();
+        }
+        if (!await GuildPermissionService.CanManageRolesAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.Forbid();
+        }
+
+        if (dto is null || dto.UserId <= 0 || dto.RoleId <= 0)
+        {
+            return Results.BadRequest("UserId and RoleId are required.");
+        }
+
+        // The target user must exist on the platform.
+        var userExists = await context.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == dto.UserId, ct);
+        if (!userExists)
+        {
+            return Results.NotFound("User not found.");
+        }
+
+        // The role must belong to this guild (not some other guild's
+        // role that happens to share an id — that would silently
+        // let an admin with cross-guild role ids do the wrong thing).
+        var roleExists = await context.GuildRoles
+            .AsNoTracking()
+            .AnyAsync(r => r.Id == dto.RoleId && r.GuildId == guildId, ct);
+        if (!roleExists)
+        {
+            return Results.NotFound("Role not found in this guild.");
+        }
+
+        // Idempotent: if the user is already in the guild, fail
+        // loudly. The client should refresh its member list and
+        // realise the row is already there.
+        var alreadyMember = await context.GuildMembers
+            .AsNoTracking()
+            .AnyAsync(m => m.GuildId == guildId && m.UserId == dto.UserId, ct);
+        if (alreadyMember)
+        {
+            return Results.Conflict("That user is already a member of this guild.");
+        }
+
+        context.GuildMembers.Add(new GuildMember
+        {
+            GuildId = guildId,
+            UserId = dto.UserId,
+            RoleId = dto.RoleId,
+            IsOwner = false,
+            JoinedAt = DateTime.UtcNow,
+        });
+        await context.SaveChangesAsync(ct);
+
+        return Results.Created(
+            $"/api/guilds/{guildId}/members/{dto.UserId}",
+            await GetMemberDtoAsync(context, guildId, dto.UserId, ct));
     }
 
     /// <summary>
@@ -369,5 +546,284 @@ public static class GuildHandlers
         context.GuildMembers.Remove(member);
         await context.SaveChangesAsync(ct);
         return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Kicks another member out of the guild. Permission gate:
+    /// <c>CanKickMembers</c> or <c>IsAdministrator</c> (owner
+    /// always passes). Hierarchy enforced: a non-owner actor
+    /// can't kick someone at-or-above their own role. Owners
+    /// can't be kicked — that's a transfer-ownership workflow.
+    /// 404 if the target isn't a member, 403 on permission /
+    /// hierarchy failure, 409 if you'd be removing the last
+    /// owner.
+    /// </summary>
+    public static async Task<IResult> KickMember(
+        int guildId,
+        int userId,
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var actorId = principal.UserIdOrNull();
+        if (actorId is null) return Results.Unauthorized();
+
+        if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.NotFound();
+        }
+        if (!await GuildPermissionService.CanKickMembersAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.Forbid();
+        }
+
+        var target = await context.GuildMembers
+            .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == userId, ct);
+        if (target is null) return Results.NotFound();
+
+        if (target.IsOwner)
+        {
+            return Results.Conflict(
+                "Cannot kick a guild owner. Transfer ownership first.");
+        }
+
+        // Hierarchy check for non-owner actors. We re-use the
+        // same rule the role-management endpoints use: target
+        // must sit strictly below the actor. Owners bypass
+        // (CanKickMembersAsync already returned true).
+        var actor = await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == actorId.Value)
+            .Select(m => new { m.IsOwner, m.Role!.Position, m.Role!.Permissions!.IsAdministrator })
+            .FirstOrDefaultAsync(ct);
+        if (actor is null) return Results.Forbid();
+        if (!actor.IsOwner && !actor.IsAdministrator)
+        {
+            var targetPosition = await context.GuildRoles
+                .Where(r => r.Id == target.RoleId)
+                .Select(r => r.Position)
+                .FirstAsync(ct);
+            if (targetPosition >= actor.Position)
+            {
+                return Results.Forbid();
+            }
+        }
+
+        // Last-owner guard: if we'd be removing the only owner,
+        // refuse. (Shouldn't happen — target.IsOwner is filtered
+        // out above — but defensive.)
+        if (target.IsOwner)
+        {
+            var ownerCount = await context.GuildMembers
+                .CountAsync(m => m.GuildId == guildId && m.IsOwner, ct);
+            if (ownerCount <= 1)
+            {
+                return Results.Conflict(
+                    "You're the only owner. Transfer ownership or delete the guild first.");
+            }
+        }
+
+        context.GuildMembers.Remove(target);
+        await context.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Bans a user from the guild: removes their <c>GuildMember</c>
+    /// row if they're still a member and inserts (or refreshes)
+    /// a <c>GuildBan</c>. Same permission gate as kick
+    /// (<c>CanBanMembers</c>) plus hierarchy. Bans are upserts:
+    /// re-banning a banned user updates the existing row's
+    /// reason / by / at instead of creating a duplicate, so the
+    /// unique index on (GuildId, UserId) isn't violated.
+    /// </summary>
+    public static async Task<IResult> BanMember(
+        int guildId,
+        BanMemberDto dto,
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var actorId = principal.UserIdOrNull();
+        if (actorId is null) return Results.Unauthorized();
+
+        if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.NotFound();
+        }
+        if (!await GuildPermissionService.CanBanMembersAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.Forbid();
+        }
+
+        if (dto is null || dto.UserId <= 0)
+        {
+            return Results.BadRequest("UserId is required.");
+        }
+        if (dto.Reason is { Length: > 500 })
+        {
+            return Results.BadRequest("Reason must be 500 characters or fewer.");
+        }
+
+        var targetUserExists = await context.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == dto.UserId, ct);
+        if (!targetUserExists)
+        {
+            return Results.NotFound("User not found.");
+        }
+
+        var target = await context.GuildMembers
+            .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == dto.UserId, ct);
+
+        if (target is not null)
+        {
+            if (target.IsOwner)
+            {
+                return Results.Conflict(
+                    "Cannot ban a guild owner. Transfer ownership first.");
+            }
+            // Same hierarchy rule as kick: the actor must sit
+            // above the target unless they're an owner / admin.
+            var actor = await context.GuildMembers
+                .AsNoTracking()
+                .Where(m => m.GuildId == guildId && m.UserId == actorId.Value)
+                .Select(m => new { m.IsOwner, m.Role!.Position, m.Role!.Permissions!.IsAdministrator })
+                .FirstOrDefaultAsync(ct);
+            if (actor is null) return Results.Forbid();
+            if (!actor.IsOwner && !actor.IsAdministrator)
+            {
+                var targetPosition = await context.GuildRoles
+                    .Where(r => r.Id == target.RoleId)
+                    .Select(r => r.Position)
+                    .FirstAsync(ct);
+                if (targetPosition >= actor.Position)
+                {
+                    return Results.Forbid();
+                }
+            }
+            context.GuildMembers.Remove(target);
+        }
+
+        // Upsert: if there's already a ban row for (guild, user),
+        // refresh the reason / by / at; otherwise insert a new one.
+        var existingBan = await context.GuildBans
+            .FirstOrDefaultAsync(b => b.GuildId == guildId && b.UserId == dto.UserId, ct);
+        if (existingBan is null)
+        {
+            existingBan = new GuildBan
+            {
+                GuildId = guildId,
+                UserId = dto.UserId,
+                BannedById = actorId.Value,
+                BannedAt = DateTime.UtcNow,
+                Reason = string.IsNullOrWhiteSpace(dto.Reason) ? null : dto.Reason.Trim(),
+            };
+            context.GuildBans.Add(existingBan);
+        }
+        else
+        {
+            existingBan.BannedById = actorId.Value;
+            existingBan.BannedAt = DateTime.UtcNow;
+            existingBan.Reason = string.IsNullOrWhiteSpace(dto.Reason) ? null : dto.Reason.Trim();
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        return Results.Created(
+            $"/api/guilds/{guildId}/bans/{existingBan.UserId}",
+            await ToBanDtoAsync(context, existingBan, ct));
+    }
+
+    /// <summary>
+    /// Lifts an active ban. Permission gate: same as ban
+    /// (<c>CanBanMembers</c>). Idempotent: unbanning a non-banned
+    /// user is a 204, not a 404 — the intent ("make sure this
+    /// person is not banned") is satisfied either way and the
+    /// caller shouldn't have to special-case the race.
+    /// </summary>
+    public static async Task<IResult> UnbanMember(
+        int guildId,
+        int userId,
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var actorId = principal.UserIdOrNull();
+        if (actorId is null) return Results.Unauthorized();
+
+        if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.NotFound();
+        }
+        if (!await GuildPermissionService.CanBanMembersAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.Forbid();
+        }
+
+        var ban = await context.GuildBans
+            .FirstOrDefaultAsync(b => b.GuildId == guildId && b.UserId == userId, ct);
+        if (ban is null) return Results.NoContent();
+        context.GuildBans.Remove(ban);
+        await context.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Lists active bans. Same gate as ban / unban. The list is
+    /// ordered most-recent-first so the settings UI can show
+    /// "last 10 bans" without a separate sort.
+    /// </summary>
+    public static async Task<IResult> ListBans(
+        int guildId,
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken ct)
+    {
+        var actorId = principal.UserIdOrNull();
+        if (actorId is null) return Results.Unauthorized();
+
+        if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.NotFound();
+        }
+        if (!await GuildPermissionService.CanBanMembersAsync(context, guildId, actorId.Value, ct))
+        {
+            return Results.Forbid();
+        }
+
+        var rows = await context.GuildBans
+            .AsNoTracking()
+            .Where(b => b.GuildId == guildId)
+            .OrderByDescending(b => b.BannedAt)
+            .ToListAsync(ct);
+
+        var result = new List<GuildBanDto>(rows.Count);
+        foreach (var b in rows) result.Add(await ToBanDtoAsync(context, b, ct));
+        return Results.Ok(result);
+    }
+
+    private static async Task<GuildBanDto> ToBanDtoAsync(
+        AppDbContext context, GuildBan ban, CancellationToken ct)
+    {
+        var user = await context.Users.AsNoTracking()
+            .Where(u => u.Id == ban.UserId)
+            .Select(u => new { u.Username, u.DisplayName })
+            .FirstOrDefaultAsync(ct);
+        var by = await context.Users.AsNoTracking()
+            .Where(u => u.Id == ban.BannedById)
+            .Select(u => u.Username)
+            .FirstOrDefaultAsync(ct) ?? "(unknown)";
+        return new GuildBanDto
+        {
+            Id = ban.Id,
+            UserId = ban.UserId,
+            Username = user?.Username ?? "(deleted)",
+            DisplayName = string.IsNullOrEmpty(user?.DisplayName) ? (user?.Username ?? "(deleted)") : user.DisplayName,
+            BannedById = ban.BannedById,
+            BannedByUsername = by,
+            BannedAt = ban.BannedAt,
+            Reason = ban.Reason,
+        };
     }
 }

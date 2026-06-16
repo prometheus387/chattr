@@ -20,6 +20,26 @@ public static class GuildRoutes
         group.MapGet("/{guildId:int}/members", GuildHandlers.GetGuildMembers)
              .RequireAuthorization();
 
+        // Add an existing platform user to the guild with a
+        // chosen role. Owner / IsAdministrator / CanManageRoles
+        // only — the handler re-checks via GuildPermissionService.
+        group.MapPost("/{guildId:int}/members", GuildHandlers.AddMember)
+             .RequireAuthorization();
+
+        // Kick another member out. CanKickMembers / IsAdministrator.
+        group.MapDelete("/{guildId:int}/members/{userId:int}", GuildHandlers.KickMember)
+             .RequireAuthorization();
+
+        // Bans. POST = ban, DELETE = unban, GET = list. All
+        // gated by CanBanMembers / IsAdministrator inside the
+        // handler.
+        group.MapPost("/{guildId:int}/bans", GuildHandlers.BanMember)
+             .RequireAuthorization();
+        group.MapDelete("/{guildId:int}/bans/{userId:int}", GuildHandlers.UnbanMember)
+             .RequireAuthorization();
+        group.MapGet("/{guildId:int}/bans", GuildHandlers.ListBans)
+             .RequireAuthorization();
+
         // Patch a guild's settings (name, icon). The handler enforces
         // admin permissions internally — anyone authenticated can hit
         // the route, non-admins get a 403 back.

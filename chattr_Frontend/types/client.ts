@@ -31,7 +31,41 @@ export interface GuildSummary {
   iconUrl: string | null;
   memberCount: number;
   isOwner: boolean;
+  /**
+   * True iff the current user has a role with IsAdministrator on
+   * this guild (or is the owner). Drives the Overview tab in the
+   * settings modal — only admins / owners can rename the guild.
+   */
   isAdministrator: boolean;
+  /**
+   * True iff the current user can create / edit / delete channels
+   * here. Set when the user's role has IsAdministrator OR
+   * CanManageChannels. Drives the Channels tab visibility.
+   */
+  canManageChannels: boolean;
+  /**
+   * True iff the current user can manage roles / members here.
+   * Set when the user's role has IsAdministrator OR
+   * CanManageRoles. Drives the Roles + Members tab visibility.
+   */
+  canManageRoles: boolean;
+  /**
+   * True iff the current user can kick other members. Surfaces
+   * the "Kick" entry in the member right-click menu. Same gate
+   * logic on the server — see `GuildPermissionService.CanKick*`.
+   */
+  canKickMembers: boolean;
+  /**
+   * True iff the current user can ban other members. Surfaces
+   * the "Ban" entry in the member right-click menu.
+   */
+  canBanMembers: boolean;
+  /**
+   * True iff the current user can create invite links for the
+   * guild. Enables the "Invite people" entry in the guild
+   * header dropdown.
+   */
+  canCreateInvite: boolean;
 }
 
 export type ChannelKind = "Text" | "Voice";

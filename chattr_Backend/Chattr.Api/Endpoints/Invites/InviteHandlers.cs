@@ -143,6 +143,18 @@ public static class InviteHandlers
             return Results.BadRequest("This invite link is no longer valid.");
         }
 
+        // Banned users can't rejoin via a fresh invite. Check
+        // before doing the member-row insert so a banned
+        // user sees a clear 403 instead of a silent success
+        // followed by a mystery "you don't see any channels".
+        var isBanned = await context.GuildBans
+            .AsNoTracking()
+            .AnyAsync(b => b.GuildId == invite.GuildId && b.UserId == userId.Value, ct);
+        if (isBanned)
+        {
+            return Results.Forbid();
+        }
+
         // Already a member? Just return 200 — don't bump the use count
         // for a no-op, and don't fail the UX.
         var existing = await context.GuildMembers

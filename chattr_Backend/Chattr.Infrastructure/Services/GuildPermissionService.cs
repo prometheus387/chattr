@@ -51,6 +51,105 @@ public static class GuildPermissionService
     }
 
     /// <summary>
+    /// True if <paramref name="userId"/> may create / edit / delete
+    /// channels in <paramref name="guildId"/>. The owner gets a
+    /// universal bypass; everyone else needs
+    /// <c>IsAdministrator</c> OR <c>CanManageChannels</c> on their
+    /// role. The gate is intentionally not hierarchy-checked: any
+    /// member with either flag may touch any channel.
+    /// </summary>
+    public static async Task<bool> CanManageChannelsAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct = default)
+    {
+        if (await IsGuildOwnerAsync(context, guildId, userId, ct)) return true;
+
+        return await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new
+            {
+                CanManage = m.Role!.Permissions!.IsAdministrator
+                            || m.Role!.Permissions!.CanManageChannels,
+            })
+            .AnyAsync(x => x.CanManage, ct);
+    }
+
+    /// <summary>
+    /// True if <paramref name="userId"/> may manage roles in
+    /// <paramref name="guildId"/>. Owners always pass; everyone
+    /// else needs <c>IsAdministrator</c> OR <c>CanManageRoles</c>.
+    /// Per-role hierarchy (target.Position &lt; actor.Position) is
+    /// checked separately by <see cref="CanManageRoleAsync"/>; this
+    /// is the "may I open the Roles tab at all?" gate.
+    /// </summary>
+    public static async Task<bool> CanManageRolesAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct = default)
+    {
+        if (await IsGuildOwnerAsync(context, guildId, userId, ct)) return true;
+
+        return await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new
+            {
+                CanManage = m.Role!.Permissions!.IsAdministrator
+                            || m.Role!.Permissions!.CanManageRoles,
+            })
+            .AnyAsync(x => x.CanManage, ct);
+    }
+
+    /// <summary>
+    /// True if <paramref name="userId"/> may kick members from
+    /// <paramref name="guildId"/>. Owner bypass; everyone else
+    /// needs <c>IsAdministrator</c> OR <c>CanKickMembers</c>.
+    /// The actor must also be strictly above the target in the
+    /// hierarchy — you can't kick your peer. The check that
+    /// enforces hierarchy lives in the kick handler (which has
+    /// access to the target user); this helper is the
+    /// "may I kick anyone here at all?" gate.
+    /// </summary>
+    public static async Task<bool> CanKickMembersAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct = default)
+    {
+        if (await IsGuildOwnerAsync(context, guildId, userId, ct)) return true;
+
+        return await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new
+            {
+                CanManage = m.Role!.Permissions!.IsAdministrator
+                            || m.Role!.Permissions!.CanKickMembers,
+            })
+            .AnyAsync(x => x.CanManage, ct);
+    }
+
+    /// <summary>
+    /// Same shape as <see cref="CanKickMembersAsync"/>, but for
+    /// the ban permission. We use two helpers rather than one
+    /// combined "can moderate" flag because the permissions
+    /// model has them as separate toggles — a guild could in
+    /// principle allow kicks (temporary removal) without
+    /// allowing bans (permanent blacklist), and we want the
+    /// server-side gate to honour that distinction.
+    /// </summary>
+    public static async Task<bool> CanBanMembersAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct = default)
+    {
+        if (await IsGuildOwnerAsync(context, guildId, userId, ct)) return true;
+
+        return await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new
+            {
+                CanManage = m.Role!.Permissions!.IsAdministrator
+                            || m.Role!.Permissions!.CanBanMembers,
+            })
+            .AnyAsync(x => x.CanManage, ct);
+    }
+
+    /// <summary>
     /// True if <paramref name="userId"/> is a member of <paramref name="guildId"/> at all.
     /// </summary>
     public static async Task<bool> IsGuildMemberAsync(
@@ -59,6 +158,26 @@ public static class GuildPermissionService
         return await context.GuildMembers
             .AsNoTracking()
             .AnyAsync(m => m.GuildId == guildId && m.UserId == userId, ct);
+    }
+
+    /// <summary>
+    /// True if <paramref name="userId"/> is a member of
+    /// <paramref name="guildId"/> AND is currently sitting on
+    /// <paramref name="roleId"/>. Used by the role-management
+    /// endpoints to answer "is this the actor's own role?"
+    /// before allowing edits. Owner is *not* a bypass here —
+    /// the owner can technically be on any role they choose,
+    /// so the check is "is the actor literally on this role?",
+    /// which is true regardless of owner status. The owner
+    /// gets a separate pass further down
+    /// (<see cref="CanManageRoleAsync"/>).
+    /// </summary>
+    public static async Task<bool> IsActorOnRoleAsync(
+        AppDbContext context, int guildId, int userId, int roleId, CancellationToken ct = default)
+    {
+        return await context.GuildMembers
+            .AsNoTracking()
+            .AnyAsync(m => m.GuildId == guildId && m.UserId == userId && m.RoleId == roleId, ct);
     }
 
     /// <summary>

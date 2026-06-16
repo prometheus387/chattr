@@ -27,6 +27,11 @@ import { FriendsList } from "@/components/client/friends-list";
 import { DmMessageList } from "@/components/client/dm-message-list";
 import { CreateGuildModal } from "@/components/client/create-guild-modal";
 import { GuildSettingsModal } from "@/components/client/guild-settings-modal";
+import { InviteModal } from "@/components/client/invite-modal";
+import { MemberContextMenu } from "@/components/client/guild-settings/member-context-menu";
+import { ChannelContextMenu } from "@/components/client/channel-context-menu";
+import { ChannelEditModal, DeleteChannelConfirm } from "@/components/client/channel-modals";
+import { DmContextMenu } from "@/components/client/dm-context-menu";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */
@@ -107,6 +112,40 @@ function ClientPageInner() {
   const [openingDm, setOpeningDm] = useState(false);
   const [createGuildOpen, setCreateGuildOpen] = useState(false);
   const [settingsGuildId, setSettingsGuildId] = useState<number | null>(null);
+  // Set when the user clicks "Invite people" in the guild
+  // header. The InviteModal handles its own data fetching
+  // — we just hold the anchor so the modal knows which
+  // guild to mint an invite for.
+  const [inviteModalGuildId, setInviteModalGuildId] = useState<number | null>(null);
+  // Channel-level context menu / modals. Same pattern as
+  // the member menu: one anchor at a time, edit + delete
+  // driven by `canManageChannels` from the active guild.
+  const [channelMenu, setChannelMenu] = useState<
+    | { channel: Channel; x: number; y: number }
+    | null
+  >(null);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [deletingChannel, setDeletingChannel] = useState<Channel | null>(null);
+  const [channelOpError, setChannelOpError] = useState<string | null>(null);
+  // Per-DM context menu (Hide from list). Lives at the page
+  // level so the sidebar / modal state is consistent with
+  // the other context menus we already host here.
+  const [dmMenu, setDmMenu] = useState<
+    | { dm: DmSummary; x: number; y: number }
+    | null
+  >(null);
+  // Per-guild context-menu anchor for member actions (kick,
+  // ban, assign role). Lives here — not inside `MessageList` /
+  // `UserList` — so only one menu can be open at a time, and
+  // the data it needs (guild summary, roles, permissions)
+  // already lives at the page level.
+  const [memberMenu, setMemberMenu] = useState<
+    | { member: GuildMember; x: number; y: number }
+    | null
+  >(null);
+  // Counter the menu uses to ask the page to re-fetch its
+  // member / role caches after a successful kick/ban/assign.
+  const [memberReloadTick, setMemberReloadTick] = useState(0);
 
   /**
    * On screens below `md` we can only show one of the two side panels
@@ -275,11 +314,21 @@ function ClientPageInner() {
   // ---- Load members + roles when guild changes --------------------------
   // Drives the right-hand user sidebar. Both are cached by
   // guild id, same pattern as the channel list, so flipping
-  // back to a guild you've visited before is instant.
+  // back to a guild you've visited before is instant. We also
+  // re-fetch on `memberReloadTick` so kicks / bans performed
+  // from the per-guild context menu propagate without forcing
+  // the user to switch guilds.
   useEffect(() => {
     if (selection.scope.kind !== "guild") return;
     const guildId = selection.scope.guildId;
-    if (membersByGuild[guildId] && rolesByGuild[guildId]) return; // cached
+    // `memberReloadTick > 0` means an action from the per-guild
+    // context menu just landed (kick / ban / assign). The cache
+    // may now be stale, so bypass it and re-fetch. Tick 0 is
+    // the initial mount — for that we honour the cache.
+    const bypassCache = memberReloadTick > 0;
+    if (!bypassCache && membersByGuild[guildId] && rolesByGuild[guildId]) {
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -301,7 +350,7 @@ function ClientPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [selection.scope, membersByGuild, rolesByGuild]);
+  }, [selection.scope, membersByGuild, rolesByGuild, memberReloadTick]);
 
   // ---- Reload DMs when entering friends mode (cheap; small payload) ------
   useEffect(() => {
@@ -647,6 +696,177 @@ function ClientPageInner() {
     setMobileView("channels");
   }, []);
 
+  /** Open the per-guild member context menu at the given client coords. */
+  const openMemberMenu = useCallback((member: GuildMember, x: number, y: number) => {
+    setMemberMenu({ member, x, y });
+  }, []);
+
+  const closeMemberMenu = useCallback(() => {
+    setMemberMenu(null);
+  }, []);
+
+  /**
+   * Called by the context menu after a successful action so the
+   * page's member / role caches re-fetch. Incrementing the tick
+   * also closes the menu (the action handler does that), so
+   * the only thing left to do here is bust the cache.
+   */
+  const onMemberMenuChanged = useCallback(() => {
+    setMemberReloadTick((t) => t + 1);
+  }, []);
+
+  /** Open the invite modal for the active guild (no-op if none). */
+  const onOpenInvite = useCallback(() => {
+    if (selection.scope.kind !== "guild") return;
+    setInviteModalGuildId(selection.scope.guildId);
+  }, [selection.scope]);
+
+  const onCloseInvite = useCallback(() => {
+    setInviteModalGuildId(null);
+  }, []);
+
+  /** Open the channel context menu at the click point. */
+  const openChannelContextMenu = useCallback(
+    (channel: Channel, x: number, y: number) => {
+      setChannelMenu({ channel, x, y });
+    },
+    [],
+  );
+
+  const closeChannelMenu = useCallback(() => {
+    setChannelMenu(null);
+  }, []);
+
+  /** Open the DM context menu at the click point. */
+  const openDmContextMenu = useCallback(
+    (dm: DmSummary, x: number, y: number) => {
+      setDmMenu({ dm, x, y });
+    },
+    [],
+  );
+
+  const closeDmMenu = useCallback(() => {
+    setDmMenu(null);
+  }, []);
+
+  /**
+   * "Hide from list" — filters the DM out of the local
+   * `dms` cache. The conversation is still alive on the
+   * server; the row will re-appear on the next list refresh
+   * if a new message arrives, or if the user navigates away
+   * and back. A real "delete conversation" would need a
+   * server endpoint that also clears the other user's view,
+   * which is a bigger design call.
+   */
+  const onHideDm = useCallback(
+    (dmId: number) => {
+      setDms((prev) => prev.filter((d) => d.id !== dmId));
+      setSelection((prev) => {
+        if (prev.scope.kind !== "friends") return prev;
+        if (prev.dmId !== dmId) return prev;
+        return { ...prev, dmId: null };
+      });
+    },
+    [],
+  );
+
+  /**
+   * Drag-and-drop reorder. We don't try to splice the
+   * change into the local cache in-place — the server's
+   * renumbering is straightforward (every other channel
+   * gets bumped by 10) and the alternative is a class of
+   * bugs where the client cache disagrees with the server.
+   * On success we re-fetch the channel list for the
+   * affected guild.
+   */
+  const onChannelReorder = useCallback(
+    async (
+      dragged: Channel,
+      target: Channel,
+      position: "before" | "after",
+    ) => {
+      // The server expects an *absolute* target position.
+      // We compute a sensible one from the local cache so
+      // the row lands at the new spot without us having to
+      // re-fetch first. If the new position would be
+      // negative or out of range, the server's
+      // RenumberPositionsAsync clamps it for us.
+      const list = channelsByGuild[dragged.guildId] ?? [];
+      const targetIndex = list.findIndex((c) => c.id === target.id);
+      if (targetIndex < 0) return;
+      const insertAt = position === "before" ? targetIndex : targetIndex + 1;
+      try {
+        await api.guildChannels.update(dragged.guildId, dragged.id, {
+          position: insertAt,
+        });
+        // Re-fetch so the cached list matches the server.
+        const fresh = await api.guilds.channels(dragged.guildId);
+        setChannelsByGuild((prev) => ({
+          ...prev,
+          [dragged.guildId]: fresh,
+        }));
+      } catch (err) {
+        setChannelOpError(
+          err instanceof ApiError
+            ? err.status === 403
+              ? "You don't have permission to reorder channels here."
+              : err.message || "Could not reorder channel."
+            : "Network error.",
+        );
+      }
+    },
+    [channelsByGuild],
+  );
+
+  /** Apply a server-issued channel update (rename, recategorise). */
+  const onChannelSaved = useCallback((updated: Channel) => {
+    setChannelsByGuild((prev) => {
+      const list = prev[updated.guildId] ?? [];
+      return {
+        ...prev,
+        [updated.guildId]: list.map((c) => (c.id === updated.id ? updated : c)),
+      };
+    });
+    setEditingChannel(null);
+  }, []);
+
+  /** Delete a channel. Server returns 204; we filter the
+   *  row out of the local cache so the sidebar updates
+   *  immediately. If the deleted channel was the active
+   *  one, we drop the user back to "no channel selected". */
+  const onChannelDelete = useCallback(
+    async (channel: Channel) => {
+      setChannelOpError(null);
+      try {
+        await api.guildChannels.delete(channel.guildId, channel.id);
+        setChannelsByGuild((prev) => {
+          const list = prev[channel.guildId] ?? [];
+          return {
+            ...prev,
+            [channel.guildId]: list.filter((c) => c.id !== channel.id),
+          };
+        });
+        setDeletingChannel(null);
+        setSelection((prev) => {
+          if (selection.scope.kind !== "guild") return prev;
+          if (selection.channelId !== channel.id) return prev;
+          return { ...prev, channelId: null };
+        });
+      } catch (err) {
+        setChannelOpError(
+          err instanceof ApiError
+            ? err.status === 403
+              ? "You don't have permission to delete this channel."
+              : err.status === 404
+                ? "Channel no longer exists."
+                : err.message || "Could not delete channel."
+              : "Network error.",
+        );
+      }
+    },
+    [selection],
+  );
+
   // ---- Derived ------------------------------------------------------------
   const activeGuild = useMemo(() => {
     if (selection.scope.kind !== "guild") return null;
@@ -685,6 +905,74 @@ function ClientPageInner() {
     };
   }, [activeDm, presence]);
 
+  /**
+   * Members and roles of the active guild, lifted out of the
+   * per-guild cache so the chat / user-list can read them
+   * without knowing about the cache layout.
+   */
+  const activeMembers = useMemo<GuildMember[]>(
+    () =>
+      selection.scope.kind === "guild"
+        ? membersByGuild[selection.scope.guildId] ?? []
+        : [],
+    [membersByGuild, selection.scope],
+  );
+  const activeRoles = useMemo<Role[]>(
+    () =>
+      selection.scope.kind === "guild"
+        ? rolesByGuild[selection.scope.guildId] ?? []
+        : [],
+    [rolesByGuild, selection.scope],
+  );
+
+  /**
+   * Resolve the viewer's own role + position so we can decide
+   * who they're allowed to kick / ban. Mirror of the logic in
+   * the settings modal's members tab — the page-level
+   * computation lets `MessageList` and `UserList` share the
+   * same hierarchy view without each re-deriving it.
+   */
+  const viewerMember = useMemo(
+    () => activeMembers.find((m) => m.userId === auth.user?.id) ?? null,
+    [activeMembers, auth.user?.id],
+  );
+  const viewerRole = useMemo(
+    () =>
+      viewerMember
+        ? activeRoles.find((r) => r.id === viewerMember.roleId) ?? null
+        : null,
+    [viewerMember, activeRoles],
+  );
+  const viewerIsAdmin =
+    !!viewerRole?.permissions.isAdministrator ||
+    activeGuild?.isAdministrator === true;
+  const viewerCanMoveAnyone =
+    activeGuild?.isOwner === true || viewerIsAdmin;
+  const viewerPosition = viewerRole?.position ?? 0;
+
+  /**
+   * Members the viewer is NOT allowed to kick / ban. Owners
+   * always qualify. Without the universal-bypass flag (owner
+   * / admin), anyone at-or-above the viewer's tier is off
+   * limits — the server enforces the same rule, the client
+   * just hides the buttons so the user doesn't see 403s.
+   */
+  const untargetableIds = useMemo(() => {
+    const out = new Set<number>();
+    if (!activeGuild) return out;
+    for (const m of activeMembers) {
+      if (m.isOwner) {
+        out.add(m.userId);
+        continue;
+      }
+      if (viewerCanMoveAnyone) continue;
+      const mRole = activeRoles.find((r) => r.id === m.roleId);
+      if (!mRole) continue;
+      if (mRole.position >= viewerPosition) out.add(m.userId);
+    }
+    return out;
+  }, [activeGuild, activeMembers, activeRoles, viewerCanMoveAnyone, viewerPosition]);
+
   // ---- Sidebar-mode construction ------------------------------------------
   const sidebarMode: SidebarMode =
     selection.scope.kind === "friends"
@@ -699,6 +987,7 @@ function ClientPageInner() {
             // go here.
             setSelection((prev) => ({ ...prev, dmId: null }));
           },
+          onDmContextMenu: openDmContextMenu,
         }
       : {
           kind: "guild",
@@ -710,10 +999,27 @@ function ClientPageInner() {
                 name: activeGuild.name,
                 isOwner: activeGuild.isOwner,
                 isAdministrator: activeGuild.isAdministrator,
+                canManageRoles: activeGuild.canManageRoles,
+                canManageChannels: activeGuild.canManageChannels,
+                canCreateInvite: activeGuild.canCreateInvite,
               }
             : null,
           onLeaveGuild,
-          onOpenSettings: () => setSettingsGuildId(activeGuild!.id),
+          onInvite: onOpenInvite,
+          onOpenSettings: () => {
+            // Defense in depth: only open the settings modal if the
+            // user holds at least one management flag. The server
+            // re-checks every mutation regardless, but a member
+            // without any power shouldn't even see the dialog.
+            if (!activeGuild) return;
+            if (
+              activeGuild.isAdministrator ||
+              activeGuild.canManageRoles ||
+              activeGuild.canManageChannels
+            ) {
+              setSettingsGuildId(activeGuild.id);
+            }
+          },
           leavingGuild,
           leaveError,
         };
@@ -761,6 +1067,13 @@ function ClientPageInner() {
           // On md+: always show.
           "md:flex",
         )}
+        onChannelContextMenu={openChannelContextMenu}
+        onChannelReorder={
+          activeGuild?.canManageChannels
+            ? (dragged, target, position) =>
+                void onChannelReorder(dragged, target, position)
+            : undefined
+        }
       />
       <main
         className={clsx(
@@ -773,6 +1086,11 @@ function ClientPageInner() {
       >
         {selection.scope.kind === "friends" ? (
           activeDm ? (
+            // `key={activeDm.id}` so React remounts MessageInput
+            // (and resets its internal state) on every DM switch.
+            // The remount also drives the focus-on-mount effect
+            // inside MessageInput, so the user lands in the
+            // freshly-opened conversation ready to type.
             <>
               <DmMessageList
                 other={dmOtherPresence}
@@ -780,6 +1098,7 @@ function ClientPageInner() {
                 onBack={onBackToSidebar}
               />
               <MessageInput
+                key={`dm-${activeDm.id}`}
                 onSend={onSendDm}
                 placeholder={`Message @${activeDm.otherUsername}`}
               />
@@ -795,10 +1114,28 @@ function ClientPageInner() {
             />
           )
         ) : activeChannel ? (
+          // Same trick on the channel side: the `key` forces a
+          // remount on channel switch, which keeps the focus
+          // behaviour consistent with the DM flow.
           <>
             <ChannelHeader channel={activeChannel} onBack={onBackToSidebar} />
-            <MessageList messages={messages} />
+            <MessageList
+              messages={messages}
+              members={activeMembers}
+              roles={activeRoles}
+              untargetableIds={untargetableIds}
+              viewerUserId={auth.user?.id ?? -1}
+              viewer={{
+                canAssign:
+                  !!activeGuild?.isAdministrator ||
+                  !!activeGuild?.canManageRoles,
+                canKick: !!activeGuild?.canKickMembers,
+                canBan: !!activeGuild?.canBanMembers,
+              }}
+              onMemberAction={openMemberMenu}
+            />
             <MessageInput
+              key={`channel-${activeChannel.id}`}
               onSend={onSend}
               placeholder={
                 activeChannel ? `Message #${activeChannel.name}` : "Message"
@@ -819,6 +1156,21 @@ function ClientPageInner() {
           roles={rolesByGuild[selection.scope.guildId] ?? []}
           presences={presence.users}
           showOffline={presence.showOffline}
+          // Per-guild moderation: clicking a member (left or
+          // right) opens the page-level context menu. We pass
+          // the same permission view as the chat and settings
+          // modal use, so a member who's hidden in one place
+          // is hidden everywhere.
+          untargetableIds={untargetableIds}
+          viewerUserId={auth.user?.id ?? -1}
+          viewer={{
+            canAssign:
+              !!activeGuild?.isAdministrator ||
+              !!activeGuild?.canManageRoles,
+            canKick: !!activeGuild?.canKickMembers,
+            canBan: !!activeGuild?.canBanMembers,
+          }}
+          onMemberAction={openMemberMenu}
           // Right-side user list is only visible on lg+ (1024px+).
           // On mobile/tablet the Friends list in the center covers the
           // same info.
@@ -840,6 +1192,84 @@ function ClientPageInner() {
         onClose={() => setSettingsGuildId(null)}
         onUpdated={onGuildUpdated}
       />
+      {inviteModalGuildId !== null
+        ? (() => {
+            const inviteGuild = guilds.find(
+              (g) => g.id === inviteModalGuildId,
+            );
+            if (!inviteGuild) return null;
+            return (
+              <InviteModal
+                open
+                guild={inviteGuild}
+                onClose={onCloseInvite}
+              />
+            );
+          })()
+        : null}
+      {channelMenu && activeGuild ? (
+        <ChannelContextMenu
+          position={{ x: channelMenu.x, y: channelMenu.y }}
+          channel={channelMenu.channel}
+          canManage={activeGuild.canManageChannels}
+          onClose={closeChannelMenu}
+          onEdit={() => setEditingChannel(channelMenu.channel)}
+          onDelete={() => setDeletingChannel(channelMenu.channel)}
+        />
+      ) : null}
+      {dmMenu ? (
+        <DmContextMenu
+          position={{ x: dmMenu.x, y: dmMenu.y }}
+          dm={dmMenu.dm}
+          onClose={closeDmMenu}
+          onHide={() => onHideDm(dmMenu.dm.id)}
+        />
+      ) : null}
+      {editingChannel ? (
+        <ChannelEditModal
+          open
+          channel={editingChannel}
+          onClose={() => setEditingChannel(null)}
+          onSaved={onChannelSaved}
+        />
+      ) : null}
+      {deletingChannel ? (
+        <DeleteChannelConfirm
+          channel={deletingChannel}
+          busy={false}
+          onCancel={() => setDeletingChannel(null)}
+          onConfirm={() => {
+            setDeletingChannel(null);
+            void onChannelDelete(deletingChannel);
+          }}
+        />
+      ) : null}
+      {channelOpError ? (
+        <div
+          role="alert"
+          className="fixed bottom-4 right-4 z-[80] max-w-[360px] rounded-lg border border-rose-400/30 bg-rose-400/[0.10] px-4 py-3 text-[12.5px] text-rose-200/95 shadow-2xl shadow-black/40 backdrop-blur"
+        >
+          {channelOpError}
+        </div>
+      ) : null}
+      {memberMenu && activeGuild ? (
+        <MemberContextMenu
+          position={{ x: memberMenu.x, y: memberMenu.y }}
+          member={memberMenu.member}
+          guild={activeGuild}
+          roles={activeRoles}
+          untargetableIds={untargetableIds}
+          viewerUserId={auth.user?.id ?? -1}
+          viewer={{
+            canAssign:
+              !!activeGuild.isAdministrator || !!activeGuild.canManageRoles,
+            canKick: !!activeGuild.canKickMembers,
+            canBan: !!activeGuild.canBanMembers,
+          }}
+          onClose={closeMemberMenu}
+          onChanged={onMemberMenuChanged}
+        />
+      ) : null}
     </div>
   );
 }

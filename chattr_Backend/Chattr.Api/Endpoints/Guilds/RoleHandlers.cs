@@ -176,6 +176,23 @@ public static class RoleHandlers
         {
             return Results.NotFound();
         }
+        // "Own role" guard: an actor cannot edit the role
+        // they're currently sitting on. The hierarchy check
+        // below would also catch this (actor.Position >=
+        // target.Position), but the resulting 403 is opaque —
+        // the user has no way to know they hit a special
+        // "can't edit yourself" rule vs. a generic "you don't
+        // have permission" error. We surface a 400 with a
+        // dedicated message so the client can present it
+        // cleanly. Owners are exempted explicitly because
+        // they need to be able to manage their own role
+        // (e.g. to rename "Owner" to "Founder", or to
+        // demote themselves to test the flow).
+        if (!await GuildPermissionService.IsGuildOwnerAsync(context, guildId, userId.Value, ct)
+            && await GuildPermissionService.IsActorOnRoleAsync(context, guildId, userId.Value, roleId, ct))
+        {
+            return Results.BadRequest("You can't edit the role you're currently a member of. Ask the guild owner to make this change.");
+        }
         if (!await GuildPermissionService.CanManageRoleAsync(context, guildId, userId.Value, roleId, ct))
         {
             return Results.Forbid();
@@ -284,6 +301,23 @@ public static class RoleHandlers
         if (!await GuildPermissionService.IsGuildMemberAsync(context, guildId, userId.Value, ct))
         {
             return Results.NotFound();
+        }
+        // "Own role" guard: an actor cannot edit the role
+        // they're currently sitting on. The hierarchy check
+        // below would also catch this (actor.Position >=
+        // target.Position), but the resulting 403 is opaque —
+        // the user has no way to know they hit a special
+        // "can't edit yourself" rule vs. a generic "you don't
+        // have permission" error. We surface a 400 with a
+        // dedicated message so the client can present it
+        // cleanly. Owners are exempted explicitly because
+        // they need to be able to manage their own role
+        // (e.g. to rename "Owner" to "Founder", or to
+        // demote themselves to test the flow).
+        if (!await GuildPermissionService.IsGuildOwnerAsync(context, guildId, userId.Value, ct)
+            && await GuildPermissionService.IsActorOnRoleAsync(context, guildId, userId.Value, roleId, ct))
+        {
+            return Results.BadRequest("You can't edit the role you're currently a member of. Ask the guild owner to make this change.");
         }
         if (!await GuildPermissionService.CanManageRoleAsync(context, guildId, userId.Value, roleId, ct))
         {

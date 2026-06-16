@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<GuildRole> GuildRoles { get; set; }
     public DbSet<GuildRolePermissions> GuildRolePermissions { get; set; }
     public DbSet<GuildInvite> GuildInvites { get; set; }
+    public DbSet<GuildBan> GuildBans { get; set; }
 
     public DbSet<Channel> Channels { get; set; }
     public DbSet<Message> Messages { get; set; }
@@ -66,6 +67,22 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GuildInvite>()
             .HasOne(i => i.IssuedBy).WithMany().HasForeignKey(i => i.IssuedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- GuildBan ----
+        // One active ban per (Guild, User) pair. Re-banning a
+        // banned user should update the existing row (refresh
+        // BannedAt / BannedBy / Reason) rather than create a
+        // duplicate, so the handler does upsert by this index.
+        modelBuilder.Entity<GuildBan>().HasIndex(b => new { b.GuildId, b.UserId }).IsUnique();
+        modelBuilder.Entity<GuildBan>()
+            .HasOne(b => b.Guild).WithMany().HasForeignKey(b => b.GuildId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GuildBan>()
+            .HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GuildBan>()
+            .HasOne(b => b.BannedBy).WithMany().HasForeignKey(b => b.BannedById)
             .OnDelete(DeleteBehavior.Restrict);
 
         // ---- Channel ----

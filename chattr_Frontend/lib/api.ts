@@ -15,6 +15,7 @@ import {
   type AdminUser,
   type AuthResponse,
   type CreateRolePayload,
+  type GuildBan,
   type GuildInvite,
   type GuildMember,
   type InvitePreview,
@@ -28,6 +29,7 @@ import {
 } from "@/types/api";
 import type {
   Channel,
+  ChannelKind,
   DmMessage,
   DmSummary,
   GuildSummary,
@@ -245,8 +247,59 @@ export const api = {
         method: "PATCH",
         body: { roleId },
       }),
+    /**
+     * Add an existing platform user to the guild with a chosen
+     * role. Owner / IsAdministrator / CanManageRoles only.
+     * Returns the freshly-inserted member row in the same
+     * shape as `list`, so the settings UI can splice it in
+     * without a re-fetch. 404 if the user or role don't exist,
+     * 409 if the user is already a member.
+     */
+    add: (guildId: number, payload: { userId: number; roleId: number }) =>
+      request<GuildMember>(`/api/guilds/${guildId}/members`, {
+        method: "POST",
+        body: payload,
+      }),
+    /**
+     * Kick another member out of the guild. Owner /
+     * CanKickMembers / IsAdministrator only. 204 on success,
+     * 403 on permission / hierarchy failure, 404 if the user
+     * isn't a member, 409 if they're an owner.
+     */
+    kick: (guildId: number, userId: number) =>
+      request<void>(`/api/guilds/${guildId}/members/${userId}`, {
+        method: "DELETE",
+      }),
   },
 
+  // --- Guild bans (CanBanMembers / IsAdministrator) ---------------------
+  guildBans: {
+    /**
+     * List every active ban on a guild. Most-recent-first.
+     */
+    list: (guildId: number) =>
+      request<GuildBan[]>(`/api/guilds/${guildId}/bans`),
+    /**
+     * Ban a user from the guild: removes them from the
+     * members table (if they're still in) and creates /
+     * refreshes the ban row. Re-banning a banned user
+     * updates the existing row (no duplicates). 201 with
+     * the new ban record on success.
+     */
+    create: (guildId: number, payload: { userId: number; reason?: string }) =>
+      request<GuildBan>(`/api/guilds/${guildId}/bans`, {
+        method: "POST",
+        body: payload,
+      }),
+    /**
+     * Lift an active ban. Idempotent — unbanning a user who
+     * isn't banned still returns 204.
+     */
+    remove: (guildId: number, userId: number) =>
+      request<void>(`/api/guilds/${guildId}/bans/${userId}`, {
+        method: "DELETE",
+      }),
+  },
   guildRoles: {
     /** All roles in a guild, sorted by position (admin-tier first). */
     list: (guildId: number) =>
@@ -321,6 +374,44 @@ export const api = {
         { method: "POST" },
       ),
   },
+  // --- Guild-scoped channel management (CanManageChannels) -------------
+  guildChannels: {
+    /**
+     * List every channel in a guild. Available to any member;
+     * the management UI filters the actions to members with
+     * CanManageChannels (or IsAdministrator / IsOwner).
+     */
+    list: (guildId: number) =>
+      request<Channel[]>(`/api/guilds/${guildId}/channels`),
+    /**
+     * Create a new channel. Owner / IsAdministrator /
+     * CanManageChannels. `position` is optional — omit it to
+     * append to the end of the channel's category.
+     */
+    create: (guildId: number, payload: { name: string; category?: string | null; kind?: ChannelKind; position?: number }) =>
+      request<Channel>(`/api/guilds/${guildId}/channels`, {
+        method: "POST",
+        body: payload,
+      }),
+    /**
+     * Patch a channel's name / category / position. Same
+     * permission gate as create.
+     */
+    update: (guildId: number, channelId: number, payload: { name?: string; category?: string | null; position?: number }) =>
+      request<Channel>(`/api/guilds/${guildId}/channels/${channelId}`, {
+        method: "PATCH",
+        body: payload,
+      }),
+    /**
+     * Delete a channel. Same permission gate as create. Hard
+     * delete — messages go with it. The UI must confirm first.
+     */
+    delete: (guildId: number, channelId: number) =>
+      request<void>(`/api/guilds/${guildId}/channels/${channelId}`, {
+        method: "DELETE",
+      }),
+  },
+
   channels: {
     /** Latest messages in a channel, ascending by id. */
     messages: (channelId: number, limit = 50) =>
