@@ -7,4 +7,6 @@ public sealed class GuildSummaryDto
     public string? IconUrl { get; init; }
     public int MemberCount { get; init; }
     public bool IsOwner { get; init; }
+    /// <summary>True iff the requesting user has a role with IsAdministrator.</summary>
+    public bool IsAdministrator { get; init; }
 }

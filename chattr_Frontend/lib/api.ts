@@ -11,8 +11,17 @@
  */
 import {
   ApiError,
+  type AdminDashboard,
+  type AdminUser,
   type AuthResponse,
+  type CreateRolePayload,
+  type GuildInvite,
+  type GuildMember,
+  type InvitePreview,
   type PublicUser,
+  type Role,
+  type UpdatePlatformRolePayload,
+  type UpdateRolePayload,
   type UserLoginPayload,
   type UserRegisterPayload,
   type UsernameAvailability,
@@ -176,6 +185,21 @@ export const api = {
         method: "POST",
         body: { name },
       }),
+    /**
+     * Detail view of one guild, scoped to the requesting user. The
+     * server only returns it if the user is a member.
+     */
+    get: (guildId: number) => request<GuildSummary>(`/api/guilds/${guildId}`),
+    /**
+     * Patch a guild's settings. Only fields you send are applied.
+     * 200 on success, 403 if the caller is a member without admin
+     * rights, 404 if they aren't a member at all.
+     */
+    update: (guildId: number, patch: { name?: string; iconUrl?: string | null }) =>
+      request<GuildSummary>(`/api/guilds/${guildId}`, {
+        method: "PATCH",
+        body: patch,
+      }),
     /** All channels in a guild, grouped client-side by category. */
     channels: (guildId: number) =>
       request<Channel[]>(`/api/guilds/${guildId}/channels`),
@@ -199,6 +223,104 @@ export const api = {
     },
   },
 
+  // --- Guild members + roles (per-guild) -------------------------------
+  guildMembers: {
+    /**
+     * Members of a guild with their role colour / icon. Drives
+     * the user sidebar (which can group by role when the role
+     * has DisplaySeparately=true). Available to any member.
+     */
+    list: (guildId: number) =>
+      request<GuildMember[]>(`/api/guilds/${guildId}/members`),
+    /**
+     * Assign a role to a member. The actor's role must be above
+     * the target role in the hierarchy (or the actor must be
+     * the guild owner) — the server enforces this. 204 on
+     * success, 403 if the actor lacks the privilege, 409 if
+     * the target is a guild owner (owners can't be demoted
+     * without a transfer-ownership flow).
+     */
+    assignRole: (guildId: number, userId: number, roleId: number) =>
+      request<void>(`/api/guilds/${guildId}/members/${userId}/role`, {
+        method: "PATCH",
+        body: { roleId },
+      }),
+  },
+
+  guildRoles: {
+    /** All roles in a guild, sorted by position (admin-tier first). */
+    list: (guildId: number) =>
+      request<Role[]>(`/api/guilds/${guildId}/roles`),
+    /** Create a new role. Owner / CanManageRoles only. */
+    create: (guildId: number, payload: CreateRolePayload) =>
+      request<Role>(`/api/guilds/${guildId}/roles`, {
+        method: "POST",
+        body: payload,
+      }),
+    /** Patch a role (name / colour / position / perms / icon). */
+    update: (guildId: number, roleId: number, payload: UpdateRolePayload) =>
+      request<Role>(`/api/guilds/${guildId}/roles/${roleId}`, {
+        method: "PATCH",
+        body: payload,
+      }),
+    /** Delete a role. 400 if @everyone; 409 if members still have it. */
+    delete: (guildId: number, roleId: number) =>
+      request<void>(`/api/guilds/${guildId}/roles/${roleId}`, {
+        method: "DELETE",
+      }),
+  },
+
+  // --- Platform admin (admin / moderator only) ------------------------
+  admin: {
+    /** Every user on the platform with their role. */
+    users: () => request<AdminUser[]>("/api/admin/users"),
+    /** Update a user's platform role. */
+    updateUserRole: (userId: number, payload: UpdatePlatformRolePayload) =>
+      request<AdminUser>(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        body: payload,
+      }),
+    /** Stats for the admin dashboard. */
+    dashboard: () => request<AdminDashboard>("/api/admin/dashboard"),
+  },
+
+  // --- Guild invites -------------------------------------------------------
+  guildInvites: {
+    /** Create a fresh invite for a guild. Admin / CanCreateInvite only. */
+    create: (guildId: number, opts: { unlimitedUse?: boolean; maxUse?: number; validUntil?: string | null } = {}) =>
+      request<GuildInvite>(`/api/guilds/${guildId}/invites`, {
+        method: "POST",
+        body: opts,
+      }),
+    /** List invites for a guild. Admin only. */
+    list: (guildId: number) =>
+      request<GuildInvite[]>(`/api/guilds/${guildId}/invites`),
+    /** Revoke (delete) an invite. Admin only. */
+    revoke: (inviteId: number) =>
+      request<void>(`/api/invites/${inviteId}`, { method: "DELETE" }),
+  },
+
+  // --- Public invite lookup / accept ---------------------------------------
+  invites: {
+    /**
+     * Preview an invite by code. No auth required — but if the caller
+     * IS authenticated, the request sends the bearer token and the
+     * server fills in `alreadyMember` so the page can show the right
+     * CTA. 404 if the code is unknown / revoked.
+     */
+    preview: (code: string) =>
+      request<InvitePreview>(`/api/invites/${encodeURIComponent(code)}`),
+    /**
+     * Accept an invite. Joins the guild with @everyone. Idempotent:
+     * if the caller is already a member, returns 200 with
+     * `alreadyMember: true` and the use count is NOT bumped.
+     */
+    accept: (code: string) =>
+      request<{ guildId: number; alreadyMember: boolean }>(
+        `/api/invites/${encodeURIComponent(code)}/accept`,
+        { method: "POST" },
+      ),
+  },
   channels: {
     /** Latest messages in a channel, ascending by id. */
     messages: (channelId: number, limit = 50) =>

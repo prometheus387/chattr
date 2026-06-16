@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Chattr.Core.Constants;
 using Chattr.Core.DTOs.Auth;
 using Chattr.Core.DTOs.User;
 using Chattr.Core.Entities;
@@ -44,6 +45,15 @@ public static class AuthHandlers
             return Results.Conflict("Username already taken.");
         }
 
+        // First-account-becomes-Admin: the very first user on a
+        // brand-new instance gets the Admin role automatically.
+        // After that, everyone registers as User, and roles are
+        // assigned via the admin dashboard. We do the check
+        // BEFORE inserting to avoid a race where two concurrent
+        // signups both think they're "first" (cheap: a single
+        // COUNT query).
+        var isFirstUser = !await context.Users.AnyAsync(ct);
+
         var user = new User
         {
             // Id is auto-assigned by Postgres (SERIAL/IDENTITY).
@@ -54,6 +64,12 @@ public static class AuthHandlers
             // Hash the security answer too — never store it in cleartext.
             SecurityAnswer = BCrypt.Net.BCrypt.HashPassword(dto.AnswerTrimmed()),
             CreatedAt = DateTime.UtcNow,
+            // First user gets Admin; everyone else defaults to
+            // User (the User property's own default would also
+            // give us "User" — we set it explicitly here so the
+            // "is this the first user?" branch is obvious to
+            // anyone scanning the file).
+            PlatformRole = isFirstUser ? PlatformRoles.Admin : PlatformRoles.User,
         };
 
         context.Users.Add(user);
@@ -146,6 +162,7 @@ public static class AuthHandlers
         DisplayName = string.IsNullOrEmpty(u.DisplayName) ? u.Username : u.DisplayName,
         AvatarUrl = u.AvatarUrl,
         CreatedAt = u.CreatedAt,
+        PlatformRole = u.PlatformRole,
     };
 }
 

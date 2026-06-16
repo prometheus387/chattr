@@ -14,6 +14,18 @@ public static class GuildRoutes
         group.MapPost("/", GuildHandlers.CreateGuild)
              .RequireAuthorization();
 
+        // Detail / members of a single guild.
+        group.MapGet("/{guildId:int}", GuildHandlers.GetGuild)
+             .RequireAuthorization();
+        group.MapGet("/{guildId:int}/members", GuildHandlers.GetGuildMembers)
+             .RequireAuthorization();
+
+        // Patch a guild's settings (name, icon). The handler enforces
+        // admin permissions internally — anyone authenticated can hit
+        // the route, non-admins get a 403 back.
+        group.MapPatch("/{guildId:int}", GuildHandlers.UpdateGuild)
+             .RequireAuthorization();
+
         // Leave a guild. Maps to /api/guilds/{id}/members/me.
         group.MapDelete("/{guildId:int}/members/me", GuildHandlers.LeaveGuild)
              .RequireAuthorization();

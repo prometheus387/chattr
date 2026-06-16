@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Guild> Guilds { get; set; }
     public DbSet<GuildMember> GuildMembers { get; set; }
     public DbSet<GuildRole> GuildRoles { get; set; }
+    public DbSet<GuildRolePermissions> GuildRolePermissions { get; set; }
     public DbSet<GuildInvite> GuildInvites { get; set; }
 
     public DbSet<Channel> Channels { get; set; }
@@ -36,13 +37,27 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Guild>().HasIndex(g => g.Name);
 
         modelBuilder.Entity<GuildMember>()
-            .HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId)
+            .HasOne(m => m.User).WithMany(u => u.GuildMembers).HasForeignKey(m => m.UserId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GuildMember>()
             .HasOne(m => m.Guild).WithMany(g => g.Members).HasForeignKey(m => m.GuildId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GuildMember>()
+            .HasOne(m => m.Role).WithMany().HasForeignKey(m => m.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<GuildMember>()
             .HasIndex(m => new { m.UserId, m.GuildId }).IsUnique();
+
+        // ---- GuildRole ----
+        modelBuilder.Entity<GuildRole>()
+            .HasOne(r => r.Guild).WithMany().HasForeignKey(r => r.GuildId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GuildRole>()
+            .HasIndex(r => new { r.GuildId, r.Name }).IsUnique();
+        modelBuilder.Entity<GuildRole>()
+            .HasOne(r => r.Permissions).WithOne(p => p.Role!)
+            .HasForeignKey<GuildRolePermissions>(p => p.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ---- GuildInvite ----
         modelBuilder.Entity<GuildInvite>().HasIndex(i => i.GuildId);

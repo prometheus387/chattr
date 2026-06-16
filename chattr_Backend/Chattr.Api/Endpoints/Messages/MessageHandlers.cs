@@ -33,23 +33,56 @@ public static class MessageHandlers
             q = q.Where(m => m.Id < before.Value);
         }
 
+        // Join with GuildMembers to surface the author's role
+        // colour and icon in the same query — saves the client a
+        // round-trip to /api/guilds/{id}/members per message.
+        // The join is left-friendly: we LEFT-JOIN on (ChannelId's
+        // GuildId, AuthorId) so messages from former members still
+        // render (with null role data) instead of vanishing.
         var messages = await q
             .OrderByDescending(m => m.Id)
             .Take(take)
             .OrderBy(m => m.Id) // re-sort ascending for display
-            .Select(m => new MessageDto
+            .Select(m => new
             {
-                Id = m.Id,
-                ChannelId = m.ChannelId,
-                AuthorId = m.AuthorId,
+                m.Id,
+                m.ChannelId,
+                m.AuthorId,
                 AuthorName = m.Author!.Username,
-                Content = m.Content,
-                CreatedAt = m.CreatedAt,
-                EditedAt = m.EditedAt,
+                m.Content,
+                m.CreatedAt,
+                m.EditedAt,
+                AuthorRoleColor = m.Author!
+                    .GuildMembers
+                    .Where(gm => gm.GuildId == m.Channel!.GuildId)
+                    .Select(gm => gm.Role!.Color)
+                    .FirstOrDefault() ?? string.Empty,
+                AuthorRoleIconSvg = m.Author!
+                    .GuildMembers
+                    .Where(gm => gm.GuildId == m.Channel!.GuildId)
+                    .Select(gm => gm.Role!.IconSvg)
+                    .FirstOrDefault(),
+                AuthorRoleId = m.Author!
+                    .GuildMembers
+                    .Where(gm => gm.GuildId == m.Channel!.GuildId)
+                    .Select(gm => (int?)gm.RoleId)
+                    .FirstOrDefault(),
             })
             .ToListAsync(ct);
 
-        return Results.Ok(messages);
+        return Results.Ok(messages.Select(m => new MessageDto
+        {
+            Id = m.Id,
+            ChannelId = m.ChannelId,
+            AuthorId = m.AuthorId,
+            AuthorName = m.AuthorName,
+            AuthorRoleColor = m.AuthorRoleColor,
+            AuthorRoleIconSvg = m.AuthorRoleIconSvg,
+            AuthorRoleId = m.AuthorRoleId,
+            Content = m.Content,
+            CreatedAt = m.CreatedAt,
+            EditedAt = m.EditedAt,
+        }));
     }
 
     public static async Task<IResult> PostMessage(
@@ -87,10 +120,28 @@ public static class MessageHandlers
         context.Messages.Add(message);
         await context.SaveChangesAsync(ct);
 
-        var author = await context.Users
+        // Pull the same role fields the GET endpoint includes so
+        // the client's optimistic-insert path doesn't have to
+        // re-fetch the whole list.
+        var authorRow = await context.Users
             .AsNoTracking()
             .Where(u => u.Id == userId.Value)
-            .Select(u => u.Username)
+            .Select(u => new
+            {
+                u.Username,
+                RoleColor = u.GuildMembers
+                    .Where(gm => gm.GuildId == message.Channel!.GuildId)
+                    .Select(gm => gm.Role!.Color)
+                    .FirstOrDefault() ?? string.Empty,
+                RoleIconSvg = u.GuildMembers
+                    .Where(gm => gm.GuildId == message.Channel!.GuildId)
+                    .Select(gm => gm.Role!.IconSvg)
+                    .FirstOrDefault(),
+                RoleId = u.GuildMembers
+                    .Where(gm => gm.GuildId == message.Channel!.GuildId)
+                    .Select(gm => (int?)gm.RoleId)
+                    .FirstOrDefault(),
+            })
             .FirstAsync(ct);
 
         return Results.Ok(new MessageDto
@@ -98,7 +149,10 @@ public static class MessageHandlers
             Id = message.Id,
             ChannelId = message.ChannelId,
             AuthorId = message.AuthorId,
-            AuthorName = author,
+            AuthorName = authorRow.Username,
+            AuthorRoleColor = authorRow.RoleColor,
+            AuthorRoleIconSvg = authorRow.RoleIconSvg,
+            AuthorRoleId = authorRow.RoleId,
             Content = message.Content,
             CreatedAt = message.CreatedAt,
             EditedAt = null,

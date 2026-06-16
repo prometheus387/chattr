@@ -6,11 +6,19 @@ import clsx from "clsx";
 interface Props {
   guildName: string;
   isOwner: boolean;
+  /**
+   * True iff the current user has a role with IsAdministrator on this
+   * guild. The owner always qualifies (their @everyone role is admin
+   * by default), but other members can also be granted admin later.
+   * Drives whether the settings entry is clickable.
+   */
+  isAdministrator?: boolean;
   busy?: boolean;
   errorMessage?: string | null;
   onLeave: () => void;
   /** Stub actions shown in the dropdown but not wired up yet. */
   onInvite?: () => void;
+  /** Opens the guild settings modal. Only enabled when isAdministrator. */
   onSettings?: () => void;
 }
 
@@ -22,6 +30,7 @@ interface Props {
 export function GuildHeader({
   guildName,
   isOwner,
+  isAdministrator = false,
   busy,
   errorMessage,
   onLeave,
@@ -69,6 +78,10 @@ export function GuildHeader({
             <span className="text-[10.5px] uppercase tracking-wider text-emerald-300/80">
               Owner
             </span>
+          ) : isAdministrator ? (
+            <span className="text-[10.5px] uppercase tracking-wider text-amber-300/80">
+              Admin
+            </span>
           ) : (
             <span className="text-[10.5px] uppercase tracking-wider text-white/35">
               Member
@@ -107,8 +120,8 @@ export function GuildHeader({
           />
           <MenuItem
             icon={<SettingsIcon />}
-            label={isOwner ? "Guild settings" : "Guild settings (owner only)"}
-            disabled={!isOwner}
+            label={isAdministrator ? "Guild settings" : "Guild settings (admin only)"}
+            disabled={!isAdministrator}
             onClick={onSettings}
           />
           <div className="my-1 h-px bg-white/[0.06]" />

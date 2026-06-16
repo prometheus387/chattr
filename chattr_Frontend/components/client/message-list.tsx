@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import type { Message } from "@/types/client";
+import type { Message, Role } from "@/types/client";
 
 interface Props {
   messages: Message[];
@@ -19,6 +19,31 @@ function formatTime(iso: string): string {
 
 function initialOf(name: string): string {
   return name.trim().charAt(0).toUpperCase() || "?";
+}
+
+/**
+ * Renders a sanitized inline-SVG role icon. The backend runs
+ * each value through SvgSanitizer before it lands in the DB
+ * (script / event handlers / external references are stripped),
+ * so the client can render with dangerouslySetInnerHTML
+ * without a second sanitization pass.
+ *
+ * Sizing is done in CSS so callers can drop the icon next to
+ * a username (1em) or in a user-sidebar section label (16px)
+ * with a single component.
+ */
+function RoleIcon({ svg, className }: { svg: string | null; className?: string }) {
+  if (!svg) return null;
+  return (
+    <span
+      // Server has already sanitized (whitelisted elements,
+      // stripped on*/script/javascript:/foreignObject). See
+      // Chattr.Infrastructure.Services.SvgSanitizer.
+      dangerouslySetInnerHTML={{ __html: svg }}
+      className={clsx("inline-grid place-items-center align-[-0.125em]", className)}
+      aria-hidden
+    />
+  );
 }
 
 export function MessageList({ messages, className }: Props) {
@@ -78,7 +103,23 @@ export function MessageList({ messages, className }: Props) {
               <div className="min-w-0 flex-1">
                 {!grouped && (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[13.5px] font-semibold text-white/90">
+                    {/* Role icon (if any) sits to the left of the
+                        author name. Sized 1em so it scales with
+                        the text and lines up visually. */}
+                    <RoleIcon
+                      svg={m.authorRoleIconSvg}
+                      className="h-[1em] w-[1em] text-current"
+                      // The colour follows the username — we set
+                      // it on the wrapper span via inline style.
+                    />
+                    <span
+                      className="text-[13.5px] font-semibold"
+                      style={
+                        m.authorRoleColor
+                          ? { color: m.authorRoleColor }
+                          : { color: "rgba(255,255,255,0.9)" }
+                      }
+                    >
                       {m.authorName}
                     </span>
                     <span className="text-[10.5px] text-white/35">
@@ -98,3 +139,12 @@ export function MessageList({ messages, className }: Props) {
     </div>
   );
 }
+
+/**
+ * Re-exported so the user sidebar can render role icons next to
+ * member names without re-implementing the sanitized render
+ * path. Anything that needs to display <GuildRole.IconSvg> in
+ * the client should use this rather than calling
+ * dangerouslySetInnerHTML directly.
+ */
+export { RoleIcon };

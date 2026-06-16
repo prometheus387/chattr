@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import NextLink from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
 
 import {
@@ -14,6 +14,22 @@ import {
 import { LockIcon, UserIcon, ArrowRightIcon } from "../icons";
 import { useAuth } from "@/contexts/auth-provider";
 import { ApiError } from "@/types/api";
+
+/**
+ * Whitelist of internal paths we're willing to send a freshly-signed-in
+ * user to via the `?next=` query param. Anything else (external URLs,
+ * protocol-relative links, weird unicode tricks) is ignored and the
+ * user lands on /client as usual. This is a tiny guard against
+ * open-redirect abuse of the signin flow.
+ */
+function safeNext(raw: string | null): string {
+  if (!raw) return "/client";
+  // Only accept same-origin, internal paths. Reject anything with
+  // a scheme or "//" (protocol-relative), or that doesn't start
+  // with a single "/".
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/client";
+  return raw;
+}
 
 interface FormState {
   username: string;
@@ -30,6 +46,13 @@ interface FormErrors {
 export function SignInForm() {
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // If the user got bounced to /signin from a deep link (e.g. an
+  // invite), remember where they wanted to go so we can resume after
+  // the signin round-trip. The `safeNext` helper whitelists internal
+  // paths only.
+  const nextPath = safeNext(searchParams.get("next"));
 
   const [values, setValues] = useState<FormState>({
     username: "",
@@ -42,12 +65,12 @@ export function SignInForm() {
   const [success, setSuccess] = useState(false);
 
   // If we landed here already authenticated (e.g. via a deep link), bounce
-  // straight to the client. Avoids the user seeing the form flicker.
+  // straight to where they wanted to go. Avoids the user seeing the form flicker.
   useEffect(() => {
     if (auth.status === "authenticated") {
-      router.replace("/client");
+      router.replace(nextPath);
     }
-  }, [auth.status, router]);
+  }, [auth.status, router, nextPath]);
 
   const update =
     <K extends keyof FormState>(key: K) =>

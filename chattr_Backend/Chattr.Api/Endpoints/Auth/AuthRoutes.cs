@@ -12,7 +12,6 @@ public static class AuthRoutes
         group.MapPost("/signin", AuthHandlers.SignInUser);
         group.MapGet("/username-free", AuthHandlers.UsernameExists);
 
-        // Authenticated — returns the current user from the bearer token.
         group.MapGet("/me", AuthHandlers.GetCurrentUser)
              .RequireAuthorization();
     }

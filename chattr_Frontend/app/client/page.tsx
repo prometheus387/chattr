@@ -11,9 +11,11 @@ import type {
   Channel,
   DmMessage,
   DmSummary,
+  GuildMember,
   GuildSummary,
   Message,
   PresenceList,
+  Role,
   UserPresence,
 } from "@/types/client";
 import { GuildSidebar } from "@/components/client/guild-sidebar";
@@ -24,6 +26,7 @@ import { UserList } from "@/components/client/user-list";
 import { FriendsList } from "@/components/client/friends-list";
 import { DmMessageList } from "@/components/client/dm-message-list";
 import { CreateGuildModal } from "@/components/client/create-guild-modal";
+import { GuildSettingsModal } from "@/components/client/guild-settings-modal";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */
@@ -81,6 +84,13 @@ function ClientPageInner() {
   const [channelsByGuild, setChannelsByGuild] = useState<Record<number, Channel[]>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<PresenceList | null>(null);
+  // Per-guild member + role caches, keyed by guild id. We keep
+  // them separate from the channels cache because they change
+  // more often (people join/leave, role colours get tweaked)
+  // and the user sidebar needs to refresh on a different
+  // cadence than the channel tree.
+  const [membersByGuild, setMembersByGuild] = useState<Record<number, GuildMember[]>>({});
+  const [rolesByGuild, setRolesByGuild] = useState<Record<number, Role[]>>({});
   const [dms, setDms] = useState<DmSummary[]>([]);
   const [dmMessages, setDmMessages] = useState<DmMessage[]>([]);
 
@@ -96,6 +106,7 @@ function ClientPageInner() {
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [openingDm, setOpeningDm] = useState(false);
   const [createGuildOpen, setCreateGuildOpen] = useState(false);
+  const [settingsGuildId, setSettingsGuildId] = useState<number | null>(null);
 
   /**
    * On screens below `md` we can only show one of the two side panels
@@ -169,8 +180,24 @@ function ClientPageInner() {
   }, [auth.status, auth]);
 
   // ---- Restore selection from URL ----------------------------------------
+  // Tracks whether Effect A has had a chance to read the URL yet.
+  // Effect B ("selection → URL") must not run before this is true,
+  // otherwise it would overwrite a deep-linked URL (e.g. /client?g=7)
+  // with the default `selection.scope = friends` before the deep link
+  // has been applied. See the matching check in the URL-sync effect
+  // further down.
+  const urlHydratedRef = useRef(false);
+  // The most recent URL query string we have already turned into a
+  // selection (Effect A) or written back from a selection (Effect B).
+  // We use it to break the Effect A → Effect B → Effect A loop that
+  // happens because both effects create new object refs every time
+  // they run, even when the values are unchanged.
+  const lastSyncedUrlRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (guilds.length === 0) return;
+    const urlStr = searchParams.toString();
+    if (urlStr === lastSyncedUrlRef.current) return; // already in sync
     const rawScope = searchParams.get("scope"); // "friends" or undefined
     const urlGuild = Number(searchParams.get("g")) || null;
     const urlChannel = Number(searchParams.get("c")) || null;
@@ -194,8 +221,27 @@ function ClientPageInner() {
         next.channelId = null;
         if (urlDm && dms.some((d) => d.id === urlDm)) next.dmId = urlDm;
       }
+      // No-op when the URL-derived state already matches `prev`. This
+      // keeps the selection ref stable, so Effect B doesn't fire and
+      // re-write the URL — that's the other half of the render loop.
+      const sameScope =
+        prev.scope.kind === next.scope.kind &&
+        (prev.scope.kind !== "guild" ||
+          prev.scope.guildId === (next.scope as { kind: "guild"; guildId: number }).guildId);
+      if (
+        sameScope &&
+        prev.channelId === next.channelId &&
+        prev.dmId === next.dmId
+      ) {
+        return prev;
+      }
       return next;
     });
+
+    // Mark the URL as processed from this point on. Effect B can now
+    // safely start syncing selection → URL.
+    urlHydratedRef.current = true;
+    lastSyncedUrlRef.current = urlStr;
   }, [guilds, dms, searchParams]);
 
   // ---- Load channels when guild changes ----------------------------------
@@ -226,6 +272,37 @@ function ClientPageInner() {
     };
   }, [selection.scope, channelsByGuild]);
 
+  // ---- Load members + roles when guild changes --------------------------
+  // Drives the right-hand user sidebar. Both are cached by
+  // guild id, same pattern as the channel list, so flipping
+  // back to a guild you've visited before is instant.
+  useEffect(() => {
+    if (selection.scope.kind !== "guild") return;
+    const guildId = selection.scope.guildId;
+    if (membersByGuild[guildId] && rolesByGuild[guildId]) return; // cached
+    let cancelled = false;
+    (async () => {
+      try {
+        const [members, roles] = await Promise.all([
+          api.guildMembers.list(guildId),
+          api.guildRoles.list(guildId),
+        ]);
+        if (cancelled) return;
+        setMembersByGuild((prev) => ({ ...prev, [guildId]: members }));
+        setRolesByGuild((prev) => ({ ...prev, [guildId]: roles }));
+      } catch (err) {
+        if (cancelled) return;
+        // Non-fatal — the user sidebar will just show "no
+        // members yet" until the next load. Logged in
+        // dev tools if anyone cares.
+        console.warn("Failed to load guild members/roles:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selection.scope, membersByGuild, rolesByGuild]);
+
   // ---- Reload DMs when entering friends mode (cheap; small payload) ------
   useEffect(() => {
     if (selection.scope.kind !== "friends") return;
@@ -241,6 +318,11 @@ function ClientPageInner() {
   // ---- Sync URL whenever selection changes --------------------------------
   useEffect(() => {
     if (auth.status !== "authenticated") return;
+    // Don't write to the URL until Effect A has had a chance to apply
+    // any deep-link (?g=, ?c=, ?dm=). Otherwise the first auth tick
+    // would clobber /client?g=7 with /client?scope=friends before the
+    // guild id is read back out of the URL.
+    if (!urlHydratedRef.current) return;
     const params = new URLSearchParams();
     if (selection.scope.kind === "friends") {
       params.set("scope", "friends");
@@ -250,6 +332,12 @@ function ClientPageInner() {
       if (selection.channelId != null) params.set("c", String(selection.channelId));
     }
     const qs = params.toString();
+    // Skip the router.replace when the URL already matches the selection.
+    // Without this, Effect A's setSelection always returns a new object
+    // (so selection ref changes), Effect B fires, calls router.replace,
+    // searchParams changes, Effect A fires again — render loop.
+    if (qs === lastSyncedUrlRef.current) return;
+    lastSyncedUrlRef.current = qs;
     const url = qs ? `/client?${qs}` : "/client";
     router.replace(url, { scroll: false });
   }, [selection, router, auth.status]);
@@ -514,6 +602,16 @@ function ClientPageInner() {
     [],
   );
 
+  /**
+   * Update the guild's row in the local list (the sidebar pill, the
+   * channel-sidebar header, and the activeGuild reference all read
+   * from there). Called by `GuildSettingsModal` on a successful
+   * rename so the new name shows up everywhere immediately.
+   */
+  const onGuildUpdated = useCallback((guild: GuildSummary) => {
+    setGuilds((prev) => prev.map((g) => (g.id === guild.id ? guild : g)));
+  }, []);
+
   /** Open (or create) a DM with `userId` and switch to it. */
   const onOpenDmWith = useCallback(
     async (userId: number) => {
@@ -608,9 +706,14 @@ function ClientPageInner() {
           activeChannelId: selection.channelId,
           onSelectChannel,
           guildHeader: activeGuild
-            ? { name: activeGuild.name, isOwner: activeGuild.isOwner }
+            ? {
+                name: activeGuild.name,
+                isOwner: activeGuild.isOwner,
+                isAdministrator: activeGuild.isAdministrator,
+              }
             : null,
           onLeaveGuild,
+          onOpenSettings: () => setSettingsGuildId(activeGuild!.id),
           leavingGuild,
           leaveError,
         };
@@ -710,9 +813,11 @@ function ClientPageInner() {
           </FullPageCenter>
         )}
       </main>
-      {presence && (
+      {presence && selection.scope.kind === "guild" && (
         <UserList
-          users={presence.users}
+          members={membersByGuild[selection.scope.guildId] ?? []}
+          roles={rolesByGuild[selection.scope.guildId] ?? []}
+          presences={presence.users}
           showOffline={presence.showOffline}
           // Right-side user list is only visible on lg+ (1024px+).
           // On mobile/tablet the Friends list in the center covers the
@@ -724,6 +829,16 @@ function ClientPageInner() {
         open={createGuildOpen}
         onClose={() => setCreateGuildOpen(false)}
         onCreated={onGuildCreated}
+      />
+      <GuildSettingsModal
+        open={settingsGuildId !== null}
+        guild={
+          settingsGuildId === null
+            ? null
+            : guilds.find((g) => g.id === settingsGuildId) ?? null
+        }
+        onClose={() => setSettingsGuildId(null)}
+        onUpdated={onGuildUpdated}
       />
     </div>
   );

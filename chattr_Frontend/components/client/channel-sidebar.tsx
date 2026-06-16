@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import type { Channel, ChannelKind, DmSummary } from "@/types/client";
 import { GuildHeader } from "@/components/client/guild-header";
 
 export type SidebarMode =
-  | { kind: "guild"; guildHeader: GuildHeaderInfo | null; channels: Channel[]; activeChannelId: number | null; onSelectChannel: (id: number) => void; onLeaveGuild: () => void; leavingGuild: boolean; leaveError: string | null }
+  | { kind: "guild"; guildHeader: GuildHeaderInfo | null; channels: Channel[]; activeChannelId: number | null; onSelectChannel: (id: number) => void; onLeaveGuild: () => void; onOpenSettings: () => void; leavingGuild: boolean; leaveError: string | null }
   | { kind: "friends"; dms: DmSummary[]; activeDmId: number | null; onSelectDm: (id: number) => void; onStartNewDm: () => void };
 
 interface GuildHeaderInfo {
   name: string;
   isOwner: boolean;
+  isAdministrator: boolean;
 }
 
 interface Props {
@@ -40,6 +41,7 @@ export function ChannelSidebar({ mode, className }: Props) {
       onSelectChannel={mode.onSelectChannel}
       guildHeader={mode.guildHeader}
       onLeaveGuild={mode.onLeaveGuild}
+      onOpenSettings={mode.onOpenSettings}
       leavingGuild={mode.leavingGuild}
       leaveError={mode.leaveError}
       className={className}
@@ -164,6 +166,7 @@ interface GuildBodyProps {
   onSelectChannel: (id: number) => void;
   guildHeader: GuildHeaderInfo | null;
   onLeaveGuild: () => void;
+  onOpenSettings: () => void;
   leavingGuild: boolean;
   leaveError: string | null;
   className?: string;
@@ -188,16 +191,29 @@ function GuildSidebarBody({
   onSelectChannel,
   guildHeader,
   onLeaveGuild,
+  onOpenSettings,
   leavingGuild,
   leaveError,
   className,
 }: GuildBodyProps) {
-  const [openCategories, setOpenCategories] = useState<Set<string>>(
-    () => new Set(DEFAULT_OPEN_CATEGORIES),
+  // We track the *closed* categories, not the open ones — that way
+  // the default ("empty closed set") means "everything is open", and
+  // new categories that appear later (e.g. after a channel is created)
+  // are open by default too. Toggling flips a name in/out of the set.
+  const [closedCategories, setClosedCategories] = useState<Set<string>>(
+    () => new Set(),
   );
 
+  // When the channel list changes — typically when the user switches
+  // guilds — reset the closed set so every category in the new guild
+  // starts expanded. (Use `channels` as the dep, not `buckets`: buckets
+  // is a fresh array every render, which would loop the effect.)
+  useEffect(() => {
+    setClosedCategories(new Set());
+  }, [channels]);
+
   const toggle = (name: string) => {
-    setOpenCategories((prev) => {
+    setClosedCategories((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -219,9 +235,11 @@ function GuildSidebarBody({
         <GuildHeader
           guildName={guildHeader.name}
           isOwner={guildHeader.isOwner}
+          isAdministrator={guildHeader.isAdministrator}
           busy={leavingGuild}
           errorMessage={leaveError}
           onLeave={onLeaveGuild}
+          onSettings={onOpenSettings}
         />
       ) : (
         <div className="px-4 py-3 text-[11.5px] font-semibold uppercase tracking-wider text-white/40">
@@ -233,7 +251,7 @@ function GuildSidebarBody({
           <p className="px-2 py-3 text-[12px] text-white/40">No channels yet.</p>
         )}
         {buckets.map((bucket) => {
-          const open = openCategories.has(bucket.name);
+          const open = !closedCategories.has(bucket.name);
           return (
             <div key={bucket.name} className="mb-1">
               <button

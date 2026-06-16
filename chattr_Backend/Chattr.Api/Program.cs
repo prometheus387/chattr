@@ -132,10 +132,30 @@ static async Task SeedDevDataAsync(AppDbContext context)
         context.Guilds.Add(guild);
         await context.SaveChangesAsync();
 
+        // Seed only @everyone (no admin powers). The owner's
+        // permissions come from the IsOwner flag, not a role. A
+        // future role-management UI can let the owner create new
+        // tiers as needed.
+        var everyone = new Chattr.Core.Entities.GuildRole
+        {
+            GuildId = guild.Id,
+            Name = "@everyone",
+            Color = "#99aab5",
+            Position = 0,
+            DisplaySeparately = false,
+            Permissions = new Chattr.Core.Entities.GuildRolePermissions
+            {
+                IsAdministrator = false,
+            },
+        };
+        context.GuildRoles.Add(everyone);
+        await context.SaveChangesAsync();
+
         context.GuildMembers.Add(new Chattr.Core.Entities.GuildMember
         {
             UserId = user.Id,
             GuildId = guild.Id,
+            RoleId = everyone.Id,
             IsOwner = true,
             JoinedAt = DateTime.UtcNow,
         });
