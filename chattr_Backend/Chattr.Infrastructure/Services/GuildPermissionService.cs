@@ -222,6 +222,36 @@ public static class GuildPermissionService
         };
     }
 
+    /// <summary>
+    /// Flat snapshot of every permission flag as it applies
+    /// to a specific member. Owner-bypass included; a null
+    /// member (not in the guild) collapses to all-false.
+    ///
+    /// <para>
+    /// Built in one round-trip via <see cref="GetActorViewAsync"/>.
+    /// Used by the live-broadcast layer to populate the
+    /// per-viewer permission fields on
+    /// <c>GuildEventPayload</c>, so the sidebar / settings
+    /// modal can render permission-gated affordances straight
+    /// from the cached event — no follow-up REST round-trip.
+    /// </para>
+    /// </summary>
+    public static async Task<EffectiveGuildPermissions> GetEffectiveFlagsAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct = default)
+    {
+        var view = await GetActorViewAsync(context, guildId, userId, ct);
+        if (view is null) return EffectiveGuildPermissions.None;
+        return new EffectiveGuildPermissions
+        {
+            IsAdministrator = view.Has(p => p.IsAdministrator),
+            CanManageChannels = view.Has(p => p.CanManageChannels),
+            CanManageRoles = view.Has(p => p.CanManageRoles),
+            CanKickMembers = view.Has(p => p.CanKickMembers),
+            CanBanMembers = view.Has(p => p.CanBanMembers),
+            CanCreateInvite = view.Has(p => p.CanCreateInvite),
+        };
+    }
+
     // ---- Internals ---------------------------------------------------
 
     private static async Task<bool> HasFlagAsync(
@@ -281,4 +311,24 @@ public class ActorPermissionView
     /// <summary>"Any role has this flag?" — Owner-bypass included.</summary>
     public bool Has(Func<GuildRolePermissions, bool> flag) =>
         IsOwner || Roles.Any(r => flag(r.Permissions));
+}
+
+/// <summary>
+/// Flat per-member permission snapshot returned by
+/// <see cref="GuildPermissionService.GetEffectiveFlagsAsync"/>.
+/// One row of primitives so the live-broadcast payload
+/// (and the REST <c>GuildSummaryDto</c>) can take a copy
+/// without dragging the role graph along.
+/// </summary>
+public sealed class EffectiveGuildPermissions
+{
+    public bool IsAdministrator { get; init; }
+    public bool CanManageChannels { get; init; }
+    public bool CanManageRoles { get; init; }
+    public bool CanKickMembers { get; init; }
+    public bool CanBanMembers { get; init; }
+    public bool CanCreateInvite { get; init; }
+
+    /// <summary>All-false placeholder for the not-a-member case.</summary>
+    public static readonly EffectiveGuildPermissions None = new();
 }

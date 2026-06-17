@@ -136,6 +136,18 @@ public static class GuildHandlers
                 VouchCount = 0,
                 VouchLevel = 0,
                 VanitySlug = null,
+                // The owner is the universal bypass in
+                // GuildPermissionService — every permission
+                // flag is true for them from the moment the
+                // guild exists. Including these here means
+                // the sidebar / settings modal can render
+                // owner-only affordances without a follow-up
+                // REST round-trip.
+                CanManageChannels = true,
+                CanManageRoles = true,
+                CanKickMembers = true,
+                CanBanMembers = true,
+                CanCreateInvite = true,
             },
             ownerUserId: userId.Value);
 
@@ -576,6 +588,13 @@ public static class GuildHandlers
                 $"/api/guilds/{guildId}/members/{dto.UserId}",
                 memberDto);
         }
+        // Resolve the new member's effective permission flags
+        // so the sidebar can render permission-gated affordances
+        // for them straight from this event. The actor is a
+        // separate identity here — we're computing for the
+        // *added* user, not for whoever clicked the button.
+        var addedPerms = await GuildPermissionService.GetEffectiveFlagsAsync(
+            context, guildId, dto.UserId, ct);
         var guildPayload = new Chattr.Core.DTOs.Live.GuildEventPayload
         {
             Id = guildId,
@@ -583,11 +602,16 @@ public static class GuildHandlers
             IconUrl = guildRow.IconUrl,
             MemberCount = await context.GuildMembers.CountAsync(m => m.GuildId == guildId, ct),
             IsOwner = false,
-            IsAdministrator = false, // will be refined on next /me/guilds fetch
+            IsAdministrator = addedPerms.IsAdministrator,
             IsArchived = guildRow.IsArchived,
             VouchCount = guildRow.VouchCount,
             VouchLevel = guildRow.VouchLevel,
             VanitySlug = guildRow.VanitySlug,
+            CanManageChannels = addedPerms.CanManageChannels,
+            CanManageRoles = addedPerms.CanManageRoles,
+            CanKickMembers = addedPerms.CanKickMembers,
+            CanBanMembers = addedPerms.CanBanMembers,
+            CanCreateInvite = addedPerms.CanCreateInvite,
         };
         var memberPayload = new Chattr.Core.DTOs.Live.MemberEventPayload
         {
@@ -627,6 +651,7 @@ public static class GuildHandlers
         int guildId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -651,6 +676,15 @@ public static class GuildHandlers
 
         context.GuildMembers.Remove(member);
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast: drop the guild from the leaver's sidebar
+        // immediately and notify the remaining members. Fire-and-
+        // forget — the response shouldn't block on SignalR group
+        // dispatch.
+        _ = Task.WhenAll(
+            live.MemberLeft(guildId, userId.Value),
+            live.YouWereRemovedFromGuild(userId.Value, guildId));
+
         return Results.NoContent();
     }
 
@@ -669,6 +703,7 @@ public static class GuildHandlers
         int userId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var actorId = principal.UserIdOrNull();
@@ -731,6 +766,16 @@ public static class GuildHandlers
 
         context.GuildMembers.Remove(target);
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast: kick = same wire-shape as a self-leave
+        // from the kicked user's POV (they're out of the guild)
+        // and as a "member left" for everyone watching the member
+        // list. Fire-and-forget so the actor's HTTP response
+        // doesn't block on SignalR group dispatch.
+        _ = Task.WhenAll(
+            live.MemberLeft(guildId, userId),
+            live.YouWereRemovedFromGuild(userId, guildId));
+
         return Results.NoContent();
     }
 
@@ -748,6 +793,7 @@ public static class GuildHandlers
         BanMemberDto dto,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var actorId = principal.UserIdOrNull();
@@ -781,6 +827,14 @@ public static class GuildHandlers
 
         var target = await context.GuildMembers
             .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == dto.UserId, ct);
+        // Track whether the user was actually a member before
+        // this call — only fires MemberBanned / sidebar removal
+        // when the ban crossed from "not banned" or "banned-but-
+        // still-a-member" into "definitely out". Re-banning an
+        // already-banned user just refreshes the reason / at and
+        // should NOT evict their sidebar entry again (it's
+        // already gone from there).
+        var wasMember = target is not null;
 
         if (target is not null)
         {
@@ -835,6 +889,16 @@ public static class GuildHandlers
         }
 
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast (only when this call actually evicted a
+        // member). Fire-and-forget so the actor's HTTP response
+        // doesn't block on SignalR group dispatch.
+        if (wasMember)
+        {
+            _ = Task.WhenAll(
+                live.MemberBanned(guildId, dto.UserId, existingBan.Reason),
+                live.YouWereRemovedFromGuild(dto.UserId, guildId));
+        }
 
         return Results.Created(
             $"/api/guilds/{guildId}/bans/{existingBan.UserId}",

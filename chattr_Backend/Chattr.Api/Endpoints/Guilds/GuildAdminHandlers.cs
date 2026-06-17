@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Chattr.Api.Endpoints;
+using Chattr.Api.Realtime;
 using Chattr.Core.Entities;
 using Chattr.Infrastructure.Data;
 using Chattr.Infrastructure.Services;
@@ -37,6 +38,7 @@ public static class GuildAdminHandlers
         int guildId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -56,6 +58,7 @@ public static class GuildAdminHandlers
         var evicted = await context.GuildMembers
             .Where(m => m.GuildId == guildId && !m.IsOwner)
             .ToListAsync(ct);
+        var evictedUserIds = evicted.Select(m => m.UserId).ToList();
         context.GuildMembers.RemoveRange(evicted);
 
         // Revoke pending invites. We hard-delete (rather
@@ -70,6 +73,19 @@ public static class GuildAdminHandlers
 
         guild.IsArchived = true;
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast (fire-and-forget so the owner's
+        // response doesn't block on SignalR dispatch):
+        //   1. GuildArchived → every connected member's
+        //      sidebar updates the "archived" flag.
+        //   2. For each evicted user → YouWereRemovedFromGuild
+        //      so their sidebar drops the guild without
+        //      needing a reload.
+        _ = Task.WhenAll(
+            live.GuildArchived(guildId, isArchived: true),
+            Task.WhenAll(evictedUserIds.Select(uid =>
+                live.YouWereRemovedFromGuild(uid, guildId))));
+
         return Results.NoContent();
     }
 
@@ -84,6 +100,7 @@ public static class GuildAdminHandlers
         int guildId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -97,6 +114,13 @@ public static class GuildAdminHandlers
         if (!guild.IsArchived) return Results.NoContent();
         guild.IsArchived = false;
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast (fire-and-forget): every connected
+        // member's sidebar flips the archived flag off.
+        // No membership changed in this operation, so no
+        // YouWereRemovedFromGuild is needed.
+        _ = live.GuildArchived(guildId, isArchived: false);
+
         return Results.NoContent();
     }
 
@@ -112,6 +136,7 @@ public static class GuildAdminHandlers
         int guildId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -124,6 +149,12 @@ public static class GuildAdminHandlers
         if (guild is null) return Results.NotFound();
         context.Guilds.Remove(guild);
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast (fire-and-forget): the owner's
+        // sidebar drops the guild and every member (whoever
+        // was still in it at delete time) does too.
+        _ = live.GuildDeleted(guildId, ownerUserId: userId.Value);
+
         return Results.NoContent();
     }
 
@@ -143,6 +174,7 @@ public static class GuildAdminHandlers
         int guildId,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -210,6 +242,12 @@ public static class GuildAdminHandlers
         // Finally the guild itself.
         context.Guilds.Remove(guild);
         await context.SaveChangesAsync(ct);
+
+        // Live broadcast (fire-and-forget): same wire-shape
+        // as Delete — owner + every still-connected member
+        // sees the guild vanish from their sidebar.
+        _ = live.GuildDeleted(guildId, ownerUserId: userId.Value);
+
         return Results.NoContent();
     }
 }

@@ -62,14 +62,19 @@ export async function generatePgpKeyPair(opts: {
   passphrase: string;
 }): Promise<KeyPairBundle> {
   const { privateKey, publicKey } = await openpgp.generateKey({
-    type: "ecc",
-    curve: "curve25519",
+    type: "curve25519",
     userIDs: [{ name: opts.userId, email: `${opts.userId}@chattr.local` }],
     passphrase: opts.passphrase,
     format: "armored",
   });
 
-  const fingerprint = await openpgp.getFingerprint({ key: publicKey });
+  // openpgp 6.x: getFingerprint is a method on the
+  // parsed PublicKey object, not a free function. We
+  // parse the armored key once to read the fingerprint;
+  // the armored string is what we return to the caller
+  // (and what the server stores as the public key).
+  const parsedPublic = await openpgp.readKey({ armoredKey: publicKey });
+  const fingerprint = parsedPublic.getFingerprint();
 
   return {
     publicKeyArmored: publicKey,
@@ -98,10 +103,16 @@ export async function unlockPrivateKey(
   privateKeyArmored: string,
   passphrase: string,
 ): Promise<openpgp.PrivateKey> {
-  return (await openpgp.decryptKey({
-    privateKey: privateKeyArmored,
+  // openpgp 6.x: decryptKey now expects a parsed
+  // PrivateKey object, not an armored string. We
+  // parse first, then decrypt in place.
+  const parsed = await openpgp.readPrivateKey({
+    armoredKey: privateKeyArmored,
+  });
+  return openpgp.decryptKey({
+    privateKey: parsed,
     passphrase,
-  })) as openpgp.PrivateKey;
+  });
 }
 
 /**
@@ -115,12 +126,19 @@ export async function reencryptPrivateKey(
   oldPassphrase: string,
   newPassphrase: string,
 ): Promise<string> {
-  const key = await openpgp.decryptKey({
-    privateKey: privateKeyArmored,
+  const key = await openpgp.readPrivateKey({
+    armoredKey: privateKeyArmored,
+  });
+  const decrypted = await openpgp.decryptKey({
+    privateKey: key,
     passphrase: oldPassphrase,
   });
-  return (await openpgp.encryptKey({
-    privateKey: key,
+  // openpgp 6.x: encryptKey now returns a PrivateKey
+  // object. Call .armor() to get the armored string
+  // back.
+  const reencrypted = await openpgp.encryptKey({
+    privateKey: decrypted,
     passphrase: newPassphrase,
-  })) as string;
+  });
+  return reencrypted.armor();
 }

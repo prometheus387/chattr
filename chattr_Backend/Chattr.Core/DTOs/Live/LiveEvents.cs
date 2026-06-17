@@ -97,6 +97,17 @@ public sealed class GuildEventPayload
     public int VouchCount { get; set; }
     public int VouchLevel { get; set; }
     public string? VanitySlug { get; set; }
+    // Per-viewer permission flags. The live payload is
+    // built per-recipient (each user gets the flags as they
+    // apply to *them*) so the sidebar can render permission-
+    // gated affordances (Invite button, Manage Channels tab,
+    // Kick/Ban in the member menu, etc.) straight from the
+    // cached event — no extra REST round-trip.
+    public bool CanManageChannels { get; set; }
+    public bool CanManageRoles { get; set; }
+    public bool CanKickMembers { get; set; }
+    public bool CanBanMembers { get; set; }
+    public bool CanCreateInvite { get; set; }
 }
 
 public sealed class GuildDeletedPayload

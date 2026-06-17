@@ -18,6 +18,12 @@ import type {
   Role,
   UserPresence,
 } from "@/types/client";
+import {
+  seedLiveGuilds,
+  useLiveGuilds,
+} from "@/lib/store/liveStore";
+import { LiveProvider } from "@/lib/crypto/LiveProvider";
+import type { GuildEventPayload } from "@/lib/crypto/live";
 import { GuildSidebar } from "@/components/client/guild-sidebar";
 import { ChannelSidebar, type SidebarMode } from "@/components/client/channel-sidebar";
 import { MessageList } from "@/components/client/message-list";
@@ -85,7 +91,19 @@ function ClientPageInner() {
   const searchParams = useSearchParams();
 
   // ---- Data stores --------------------------------------------------------
-  const [guilds, setGuilds] = useState<GuildSummary[]>([]);
+  // The guild list lives in the live store (singleton) so
+  // that SignalR events — GuildDeleted, YouWereRemovedFromGuild,
+  // YouWereAddedToGuild — update the sidebar without a
+  // manual setState round-trip. The page-level component
+  // here seeds the store from the initial REST snapshot
+  // (see the "Initial load" effect below).
+  const liveGuilds = useLiveGuilds();
+  // `GuildSummary` and `GuildEventPayload` are
+  // structurally identical (same fields, same casing in
+  // the JSON wire — the broadcaster hands us the same
+  // shape REST would). Map with a single assertion at the
+  // boundary so consumers don't have to repeat the cast.
+  const guilds: GuildSummary[] = liveGuilds as GuildSummary[];
   const [channelsByGuild, setChannelsByGuild] = useState<Record<number, Channel[]>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<PresenceList | null>(null);
@@ -198,7 +216,12 @@ function ClientPageInner() {
           api.dms.list().catch(() => [] as DmSummary[]),
         ]);
         if (cancelled) return;
-        setGuilds(gs);
+        // Seed the live store. After this, `useLiveGuilds()`
+        // returns the same data and stays in sync with
+        // subsequent SignalR events. LiveProvider will
+        // JoinGuild for each one on connect, so the
+        // sidebar pills light up immediately.
+        seedLiveGuilds(gs as GuildEventPayload[]);
         setPresence(ps);
         setDms(ds);
       } catch (err) {
@@ -390,6 +413,34 @@ function ClientPageInner() {
     const url = qs ? `/client?${qs}` : "/client";
     router.replace(url, { scroll: false });
   }, [selection, router, auth.status]);
+
+  // ---- Auto-switch scope when the active guild disappears ---------------
+  // Fires when a `YouWereRemovedFromGuild`, `GuildDeleted`, or
+  // (for archived guilds) `GuildArchived` event drops the
+  // guild from the live store while the user has it open. We
+  // pick the next available guild — or fall back to friends
+  // when the user has no guilds left — and reset the
+  // channel/DM selection so the channel sidebar has to
+  // re-fetch.
+  useEffect(() => {
+    if (selection.scope.kind !== "guild") return;
+    const activeId = selection.scope.guildId;
+    if (guilds.some((g) => g.id === activeId)) return;
+    const next = guilds[0] ?? null;
+    setSelection((prev) => {
+      if (prev.scope.kind !== "guild" || prev.scope.guildId === activeId) {
+        return {
+          ...prev,
+          scope: next
+            ? { kind: "guild", guildId: next.id }
+            : { kind: "friends" },
+          channelId: null,
+          dmId: null,
+        };
+      }
+      return prev;
+    });
+  }, [guilds, selection.scope]);
 
   // ---- Messages: load on channel change, then poll -----------------------
   const lastMessageStampRef = useRef<number>(0);
@@ -604,12 +655,16 @@ function ClientPageInner() {
         setLeaveError("You're not a member of that guild.");
         return;
       }
-      const remaining = guilds.filter((g) => g.id !== guildId);
-      setGuilds(remaining);
+      // The backend fires `YouWereRemovedFromGuild` on the
+      // user's SignalR group, which `subscribeLive` routes
+      // into the live store — the guild disappears from the
+      // sidebar automatically. We just have to drop the
+      // cached channel list and pick the next scope.
       setChannelsByGuild((prev) => {
         const { [guildId]: _drop, ...rest } = prev;
         return rest;
       });
+      const remaining = guilds.filter((g) => g.id !== guildId);
       const next = remaining[0] ?? null;
       setSelection((prev) => ({
         ...prev,
@@ -631,17 +686,19 @@ function ClientPageInner() {
   }, [selection.scope, leavingGuild, guilds, auth]);
 
   /**
-   * Insert a newly-created guild into the sidebar, switch the
-   * selection to it, and let the existing channel-loader effect pick
-   * up the seeded channels. Called by `CreateGuildModal` on success.
+   * Switch the selection to the newly-created guild and let
+   * the existing channel-loader effect pick up the seeded
+   * channels. Called by `CreateGuildModal` on success.
+   *
+   * <para>
+   * The backend broadcasts `GuildCreated` to the creator's
+   * user group on the live hub, which the live store turns
+   * into a sidebar row automatically — no manual insert
+   * here.
+   * </para>
    */
   const onGuildCreated = useCallback(
     (guild: GuildSummary) => {
-      setGuilds((prev) => {
-        // Defensive: dedupe in case the user double-submitted.
-        if (prev.some((g) => g.id === guild.id)) return prev;
-        return [...prev, guild];
-      });
       setSelection({
         scope: { kind: "guild", guildId: guild.id },
         channelId: null,
@@ -652,13 +709,16 @@ function ClientPageInner() {
   );
 
   /**
-   * Update the guild's row in the local list (the sidebar pill, the
-   * channel-sidebar header, and the activeGuild reference all read
-   * from there). Called by `GuildSettingsModal` on a successful
-   * rename so the new name shows up everywhere immediately.
+   * No-op on the page level. The backend fires `GuildUpdated`
+   * to the guild's SignalR group on rename / re-icon, and
+   * the live store applies it to every connected client's
+   * sidebar pill, channel-sidebar header, and activeGuild
+   * reference automatically. Called by `GuildSettingsModal`
+   * on a successful rename; we keep the callback so the
+   * modal's contract doesn't change.
    */
-  const onGuildUpdated = useCallback((guild: GuildSummary) => {
-    setGuilds((prev) => prev.map((g) => (g.id === guild.id ? guild : g)));
+  const onGuildUpdated = useCallback((_guild: GuildSummary) => {
+    // Intentionally empty — see the doc-comment above.
   }, []);
 
   /** Open (or create) a DM with `userId` and switch to it. */
@@ -1046,19 +1106,29 @@ function ClientPageInner() {
     return <FullPageCenter>Switching to friends…</FullPageCenter>;
   }
 
+  // Mount the live-hub provider only after the REST
+  // snapshot has seeded the store and we have a token.
+  // Wrapping earlier would race with the seed: a GuildUpdated
+  // arriving in the millisecond between SignalR connect and
+  // `seedLiveGuilds` would be overwritten by the snapshot.
+  // Guarding on `auth.token` keeps the provider from trying
+  // to connect during the loading states above (an empty
+  // token makes SignalR's access-token factory return "" and
+  // the backend rejects the negotiation with a 401).
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full">
-      <GuildSidebar
-        guilds={guilds}
-        activeGuildId={
-          selection.scope.kind === "guild" ? selection.scope.guildId : null
-        }
-        onSelect={onSelectGuild}
-        onHome={onSelectHome}
-        homeActive={selection.scope.kind === "friends"}
-        onCreate={() => setCreateGuildOpen(true)}
-        className="shrink-0"
-      />
+    <LiveProvider token={auth.token ?? ""}>
+      <div className="flex h-[calc(100vh-4rem)] w-full">
+        <GuildSidebar
+          guilds={guilds}
+          activeGuildId={
+            selection.scope.kind === "guild" ? selection.scope.guildId : null
+          }
+          onSelect={onSelectGuild}
+          onHome={onSelectHome}
+          homeActive={selection.scope.kind === "friends"}
+          onCreate={() => setCreateGuildOpen(true)}
+          className="shrink-0"
+        />
       <ChannelSidebar
         mode={sidebarMode}
         className={clsx(
@@ -1270,7 +1340,8 @@ function ClientPageInner() {
           onChanged={onMemberMenuChanged}
         />
       ) : null}
-    </div>
+      </div>
+    </LiveProvider>
   );
 }
 

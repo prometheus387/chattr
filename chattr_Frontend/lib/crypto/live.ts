@@ -49,6 +49,16 @@ export interface GuildEventPayload {
   vouchCount: number;
   vouchLevel: number;
   vanitySlug: string | null;
+  // Per-viewer permission flags. Mirrors the server's
+  // EffectiveGuildPermissions — populated by the live
+  // broadcaster for the *specific* recipient so the
+  // sidebar / settings modal can render permission-gated
+  // affordances straight from the cached event.
+  canManageChannels: boolean;
+  canManageRoles: boolean;
+  canKickMembers: boolean;
+  canBanMembers: boolean;
+  canCreateInvite: boolean;
 }
 export interface GuildDeletedPayload {
   guildId: number;

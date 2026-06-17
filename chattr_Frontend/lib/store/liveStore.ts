@@ -41,6 +41,7 @@ import type {
   ChannelEventPayload,
   DmMessageEventPayload,
   DmOpenedPayload,
+  GuildEventPayload,
   MemberEventPayload,
   MessageEventPayload,
   NotificationEventPayload,
@@ -210,6 +211,34 @@ export function useLiveConnected(): boolean {
 export function resetLiveStore(): void {
   state = initialState;
   subscribers.forEach((cb) => cb());
+}
+
+/**
+ * Seed (or replace) the cached guild list with a fresh
+ * REST snapshot. The live store is the single source of
+ * truth for the sidebar — the initial REST load has to
+ * land in here so a freshly-mounted component sees the
+ * guilds even before any SignalR event has fired.
+ *
+ * <para>
+ * Pass the whole list, not deltas: this is a snapshot
+ * replace, not a merge. The map is rebuilt under a
+ * single setState so subscribers see one consistent
+ * state, not a half-applied patch.
+ * </para>
+ */
+export function seedLiveGuilds(guilds: GuildEventPayload[]): void {
+  useLiveStore.setState((s) => ({
+    guilds: new Map(guilds.map((g) => [g.id, g])),
+    // The REST snapshot knows nothing about channels /
+    // members — clear those caches so the next
+    // ChannelCreated / MemberJoined event repopulates
+    // from a known-clean state. (We don't wipe them on
+    // every event, just on this explicit seed, so the
+    // hub's per-event updates keep working.)
+    channelsByGuild: new Map(s.channelsByGuild),
+    membersByGuild: new Map(s.membersByGuild),
+  }));
 }
 
 export function setConnected(connected: boolean, reconnecting = false): void {

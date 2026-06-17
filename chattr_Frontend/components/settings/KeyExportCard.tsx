@@ -3,13 +3,9 @@
 import { useState } from "react";
 import {
   Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
   Button,
   Chip,
   Code,
-  Divider,
   Tooltip,
 } from "@heroui/react";
 
@@ -73,10 +69,10 @@ export function KeyExportCard() {
   if (hydrating) {
     return (
       <Card className="w-full">
-        <CardHeader>Private key</CardHeader>
-        <CardBody>
+        <Card.Header>Private key</Card.Header>
+        <Card.Content>
           <p className="text-default-500 text-sm">Loading key envelope…</p>
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -85,13 +81,13 @@ export function KeyExportCard() {
   if (!envelope) {
     return (
       <Card className="w-full">
-        <CardHeader>Private key</CardHeader>
-        <CardBody>
+        <Card.Header>Private key</Card.Header>
+        <Card.Content>
           <p className="text-default-500 text-sm">
             No PGP key on this device. Generate one in the Key Setup
             card above to enable E2EE.
           </p>
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -100,13 +96,13 @@ export function KeyExportCard() {
   if (!unlocked) {
     return (
       <Card className="w-full">
-        <CardHeader className="flex items-center justify-between gap-2">
+        <Card.Header className="flex items-center justify-between gap-2">
           <span>Private key</span>
-          <Chip size="sm" variant="flat" color="warning">
+          <Chip size="sm" variant="soft" color="warning">
             Locked
           </Chip>
-        </CardHeader>
-        <CardBody>
+        </Card.Header>
+        <Card.Content>
           <p className="text-default-500 text-sm">
             Unlock the key in the Key Setup card above to enable
             export. Exporting requires the in-RAM key — we never
@@ -116,7 +112,7 @@ export function KeyExportCard() {
             Fingerprint on file:{" "}
             <Code className="text-xs">{envelope.fingerprint}</Code>
           </p>
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -124,13 +120,13 @@ export function KeyExportCard() {
   // ---- Unlocked: show full details + download -------------------------
   return (
     <Card className="w-full">
-      <CardHeader className="flex items-center justify-between gap-2">
+      <Card.Header className="flex items-center justify-between gap-2">
         <span>Private key</span>
-        <Chip size="sm" variant="flat" color="success">
+        <Chip size="sm" variant="soft" color="success">
           Unlocked
         </Chip>
-      </CardHeader>
-      <CardBody className="gap-3">
+      </Card.Header>
+      <Card.Content className="gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-default-500 text-xs uppercase tracking-wide">
             Fingerprint
@@ -156,17 +152,17 @@ export function KeyExportCard() {
             {error}
           </p>
         ) : null}
-        <Divider className="my-2" />
+        <div role="separator" className="my-2 h-px w-full bg-default-200/40" />
         <p className="text-default-500 text-xs">
           Exports the ASCII-armored private key. Anyone with this
           file and your passphrase can read every message
           addressed to this key. Treat it like a password.
         </p>
-      </CardBody>
-      <CardFooter className="flex flex-wrap items-center gap-2">
-        <Tooltip content="Download your decrypted PGP private key as a .asc file">
+      </Card.Content>
+      <Card.Footer className="flex flex-wrap items-center gap-2">
+        <Tooltip>
           <Button
-            color="primary"
+            variant="primary"
             onPress={() => {
               setConfirming(true);
             }}
@@ -174,23 +170,34 @@ export function KeyExportCard() {
           >
             Export private key
           </Button>
+          <Tooltip.Content>
+            Download your decrypted PGP private key as a .asc file
+          </Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Remove the in-RAM key. The on-disk copy stays wrapped; you can unlock it again with your passphrase.">
-          <Button variant="flat" onPress={lock} isDisabled={downloading}>
+        <Tooltip>
+          <Button variant="secondary" onPress={lock} isDisabled={downloading}>
             Lock
           </Button>
+          <Tooltip.Content>
+            Remove the in-RAM key. The on-disk copy stays wrapped;
+            you can unlock it again with your passphrase.
+          </Tooltip.Content>
         </Tooltip>
-        <Tooltip content="Forget this key on this device. Removes both the disk copy and the RAM copy. Use only if you've exported a backup.">
+        <Tooltip>
           <Button
-            color="danger"
-            variant="flat"
+            variant="secondary"
             onPress={reset}
             isDisabled={downloading}
           >
             Forget key
           </Button>
+          <Tooltip.Content>
+            Forget this key on this device. Removes both the disk
+            copy and the RAM copy. Use only if you&apos;ve exported
+            a backup.
+          </Tooltip.Content>
         </Tooltip>
-      </CardFooter>
+      </Card.Footer>
 
       {/* Confirm modal — the file contains the private
           key in a form that grants full access to your
@@ -233,17 +240,17 @@ function ExportConfirm({
       <div className="w-full max-w-[460px] rounded-2xl border border-warning-300/30 bg-[#0c0d11]/95 p-6 shadow-2xl">
         <h3 className="text-lg font-semibold text-white">Export private key?</h3>
         <p className="mt-2 text-sm text-default-500">
-          The downloaded <c>.asc</c> file holds your decrypted
-          private key. Anyone who has the file <b>and</b> your
-          passphrase can read your messages and impersonate you.
-          Store it offline (USB stick, paper backup) and never
-          upload it anywhere.
+          The downloaded <code className="text-default-700">.asc</code>{" "}
+          file holds your decrypted private key. Anyone who has the
+          file <b>and</b> your passphrase can read your messages and
+          impersonate you. Store it offline (USB stick, paper
+          backup) and never upload it anywhere.
         </p>
         <div className="mt-5 flex items-center justify-end gap-2">
-          <Button variant="flat" onPress={onCancel}>
+          <Button variant="secondary" onPress={onCancel}>
             Cancel
           </Button>
-          <Button color="warning" onPress={() => void onConfirm()}>
+          <Button variant="danger" onPress={() => void onConfirm()}>
             Download anyway
           </Button>
         </div>

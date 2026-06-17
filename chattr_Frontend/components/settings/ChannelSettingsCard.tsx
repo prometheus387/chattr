@@ -3,13 +3,9 @@
 import { useEffect, useState } from "react";
 import {
   Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
   Switch,
   Button,
   Chip,
-  Divider,
   Tooltip,
   Spinner,
 } from "@heroui/react";
@@ -108,10 +104,10 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
   if (loading) {
     return (
       <Card>
-        <CardHeader>Channel settings</CardHeader>
-        <CardBody className="flex items-center gap-2 text-default-500 text-sm">
+        <Card.Header>Channel settings</Card.Header>
+        <Card.Content className="flex items-center gap-2 text-default-500 text-sm">
           <Spinner size="sm" /> Loading…
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -119,8 +115,8 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
   if (error && !channel) {
     return (
       <Card>
-        <CardHeader>Channel settings</CardHeader>
-        <CardBody className="text-danger text-sm">{error}</CardBody>
+        <Card.Header>Channel settings</Card.Header>
+        <Card.Content className="text-danger text-sm">{error}</Card.Content>
       </Card>
     );
   }
@@ -130,10 +126,10 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
   if (!channel.isCreator) {
     return (
       <Card>
-        <CardHeader>Channel settings</CardHeader>
-        <CardBody className="text-default-500 text-sm">
+        <Card.Header>Channel settings</Card.Header>
+        <Card.Content className="text-default-500 text-sm">
           Only the channel creator can change these settings.
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -144,13 +140,13 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex items-center justify-between gap-2">
+      <Card.Header className="flex items-center justify-between gap-2">
         <span>Channel settings</span>
-        <Chip size="sm" variant="flat" color="primary">
+        <Chip size="sm" variant="soft" color="accent">
           {channel.name}
         </Chip>
-      </CardHeader>
-      <CardBody className="gap-4">
+      </Card.Header>
+      <Card.Content className="gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-default-500 text-xs uppercase tracking-wide">
             Rotation
@@ -166,7 +162,7 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
           </span>
         </div>
 
-        <Divider />
+        <div role="separator" className="h-px w-full bg-default-200/40" />
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -182,7 +178,7 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
             </div>
             <Switch
               isSelected={clear}
-              onValueChange={(v) => {
+              onChange={(v: boolean) => {
                 setLocalClear(v);
                 setShowWarning(!v);
               }}
@@ -214,11 +210,11 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
             {error}
           </p>
         ) : null}
-      </CardBody>
-      <CardFooter className="flex items-center justify-end gap-2">
-        <Tooltip content="Discard local changes">
+      </Card.Content>
+      <Card.Footer className="flex items-center justify-end gap-2">
+        <Tooltip>
           <Button
-            variant="flat"
+            variant="secondary"
             isDisabled={!isDirty || saving}
             onPress={() => {
               setLocalClear(channel.clearOnRotation);
@@ -227,16 +223,17 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
           >
             Cancel
           </Button>
+          <Tooltip.Content>Discard local changes</Tooltip.Content>
         </Tooltip>
         <Button
-          color="primary"
+          variant="primary"
           isDisabled={!isDirty || saving}
           onPress={onSave}
-          isLoading={saving}
         >
+          {saving ? <Spinner size="sm" /> : null}
           Save
         </Button>
-      </CardFooter>
+      </Card.Footer>
     </Card>
   );
 }
