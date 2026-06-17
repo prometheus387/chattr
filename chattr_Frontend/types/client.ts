@@ -32,6 +32,14 @@ export interface GuildSummary {
   memberCount: number;
   isOwner: boolean;
   /**
+   * True when the guild is in the archived state. Owners
+   * see this banner in the Owner tab and the guild
+   * header; non-owners can't access the guild at all
+   * when it's archived, so they don't render this
+   * field.
+   */
+  isArchived: boolean;
+  /**
    * True iff the current user has a role with IsAdministrator on
    * this guild (or is the owner). Drives the Overview tab in the
    * settings modal — only admins / owners can rename the guild.
@@ -102,6 +110,13 @@ export interface Message {
   content: string;
   createdAt: string;
   editedAt: string | null;
+  /** Soft-delete timestamp. Non-null + isDeleted=true renders a placeholder. */
+  deletedAt: string | null;
+  isDeleted: boolean;
+  /** Server-computed: can the calling user edit this message? */
+  canEdit: boolean;
+  /** Server-computed: can the calling user delete this message? */
+  canDelete: boolean;
 }
 
 /**

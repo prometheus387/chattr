@@ -223,6 +223,44 @@ export const api = {
         throw err;
       }
     },
+
+    // ---- Owner-only destructive actions (settings → Owner tab) -------
+
+    /**
+     * Archive the guild. Idempotent. The server evicts every
+     * non-owner member and revokes pending invites; only the
+     * owner can keep posting. The data is kept on disk so
+     * unarchive can bring everything back.
+     */
+    archive: (guildId: number) =>
+      request<void>(`/api/guilds/${guildId}/archive`, { method: "POST" }),
+
+    /**
+     * Reverse of <see cref="archive"/>. Idempotent. The
+     * owner stays as the only member after the archive;
+     * they re-invite people via fresh invites.
+     */
+    unarchive: (guildId: number) =>
+      request<void>(`/api/guilds/${guildId}/unarchive`, { method: "POST" }),
+
+    /**
+     * Hard-delete the guild. The server relies on the FK
+     * cascade to wipe children; the request is just
+     * "remove this row" and the rest follows.
+     */
+    delete: (guildId: number) =>
+      request<void>(`/api/guilds/${guildId}`, { method: "DELETE" }),
+
+    /**
+     * "Burn" — explicit cleanup of every child row
+     * (messages, channels, roles, members, invites,
+     * vouches) before deleting the guild itself. Same end
+     * state as <see cref="delete"/>; the spec calls for
+     * the explicit walk-through rather than relying on the
+     * cascade.
+     */
+    burn: (guildId: number) =>
+      request<void>(`/api/guilds/${guildId}/burn`, { method: "POST" }),
   },
 
   // --- Guild members + roles (per-guild) -------------------------------
@@ -337,6 +375,17 @@ export const api = {
     dashboard: () => request<AdminDashboard>("/api/admin/dashboard"),
   },
 
+  /**
+   * Phase 3: the irreversible hard-delete endpoint.
+   * The frontend's <c>BurnAccountModal</c> does the
+   * local cleanup <em>before</em> calling this so the
+   * in-RAM CryptoKey objects are already gone by the
+   * time the server confirms. Returns <c>undefined</c>
+   * (the server returns 204 No Content).
+   */
+  burnAccount: () =>
+    request<void>("/api/users/me", { method: "DELETE" }),
+
   // --- Guild invites -------------------------------------------------------
   guildInvites: {
     /** Create a fresh invite for a guild. Admin / CanCreateInvite only. */
@@ -424,6 +473,27 @@ export const api = {
         method: "POST",
         body: { content },
       }),
+    /**
+     * Edit a message's content. The server returns the full
+     * updated DTO (with the new authorRoleColor / canEdit /
+     * canDelete re-computed) so the client can swap the row
+     * in place. Authorisation: own message, or the caller has
+     * IsAdministrator on their role.
+     */
+    edit: (channelId: number, messageId: number, content: string) =>
+      request<Message>(`/api/channels/${channelId}/messages/${messageId}`, {
+        method: "PATCH",
+        body: { content },
+      }),
+    /**
+     * Soft-delete a message. 204 on success or no-op (already
+     * deleted). Authorisation: own message, IsAdministrator, or
+     * CanDeleteMessages (the "manage_messages" spec).
+     */
+    delete: (channelId: number, messageId: number) =>
+      request<void>(`/api/channels/${channelId}/messages/${messageId}`, {
+        method: "DELETE",
+      }),
   },
 
   // --- Presence ------------------------------------------------------------
@@ -458,6 +528,162 @@ export const api = {
       request<DmMessage>(`/api/dms/${dmId}/messages`, {
         method: "POST",
         body: { content },
+      }),
+  },
+
+  // --- E2EE (Phase 2) ---------------------------------------------------
+  // Per the spec: per-user PGP public-key upload, channel
+  // metadata, add-member (with PGP-recipient validation),
+  // rotation (fresh AES key, optional clear-on-rotate).
+  // The cryptographic heavy lifting happens in
+  // <c>lib/crypto/</c>; this block is just the wire
+  // surface.
+  e2ee: {
+    /** Upload / replace the caller's PGP public key. */
+    uploadMyPublicKey: (publicKeyArmored: string, fingerprint: string) =>
+      request<{ fingerprint: string }>("/api/users/me/pgp-key", {
+        method: "PUT",
+        body: { publicKeyArmored, fingerprint },
+      }),
+
+    /** Fetch the caller's own public key. */
+    getMyPublicKey: () =>
+      request<{
+        userId: number;
+        publicKeyArmored: string;
+        fingerprint: string;
+        uploadedAt: string;
+      }>("/api/users/me/pgp-key"),
+
+    /** Fetch a peer's public key. */
+    getUserKey: (userId: number) =>
+      request<{
+        userId: number;
+        publicKeyArmored: string;
+        fingerprint: string;
+        uploadedAt: string;
+      }>(`/api/users/${userId}/pgp-key`),
+
+    /** Channel detail. */
+    getChannel: (channelId: number) =>
+      request<{
+        id: number;
+        name: string;
+        isEphemeral: boolean;
+        rotationInterval: string;
+        nextRotationUtc: string;
+        clearOnRotation: boolean;
+        createdByUserId: number;
+        createdAt: string;
+        isCreator: boolean;
+      }>(`/api/e2ee/channels/${channelId}`),
+
+    /** Update channel. Phase 2 only supports
+     *  <c>clearOnRotation</c> + <c>rotationInterval</c>. */
+    updateChannel: (
+      channelId: number,
+      patch: { clearOnRotation?: boolean; rotationInterval?: string },
+    ) =>
+      request<{
+        id: number;
+        clearOnRotation: boolean;
+        rotationInterval: string;
+        nextRotationUtc: string;
+      }>(`/api/e2ee/channels/${channelId}`, {
+        method: "PATCH",
+        body: patch,
+      }),
+
+    /** List the channel's current members. */
+    listMembers: (channelId: number) =>
+      request<
+        {
+          userId: number;
+          username: string;
+          displayName: string;
+          joinedAt: string;
+          hasPgpKey: boolean;
+        }[]
+      >(`/api/e2ee/channels/${channelId}/members`),
+
+    /**
+     * Phase 3: fetch the channel's persisted history.
+     * Returns an empty array for ephemeral channels
+     * (the server has nothing to give — by design).
+     * The client uses <c>KeyVersion</c> to pick the
+     * right wrapped AES key from its store to decrypt
+     * with.
+     */
+    getMessages: (channelId: number, limit = 50) =>
+      request<
+        {
+          id: number;
+          channelId: number;
+          senderId: number;
+          senderName: string;
+          ciphertext: string;
+          keyVersion: number;
+          sentAt: string;
+          isEphemeral: boolean;
+          ephemeralId: string | null;
+        }[]
+      >(`/api/e2ee/channels/${channelId}/messages?limit=${limit}`),
+
+    /**
+     * Add a user to the channel. <c>encryptedAesKey</c>
+     * is the channel's AES key wrapped with the target
+     * user's PGP public key; the server validates the
+     * wrap is addressed to the target before persisting.
+     */
+    addMember: (
+      channelId: number,
+      body: { userId: number; keyVersion: number; encryptedAesKey: string },
+    ) =>
+      request<{ id: number; keyVersion: number; createdAt: string }>(
+        `/api/e2ee/channels/${channelId}/members`,
+        { method: "POST", body },
+      ),
+
+    /** Caller's wrapped key for this channel. */
+    getMyKey: (channelId: number) =>
+      request<{
+        keyVersion: number;
+        encryptedAesKey: string;
+        createdAt: string;
+      }>(`/api/e2ee/channels/${channelId}/my-key`),
+
+    /** All members' PGP public keys. Used by the
+     *  rotation flow. */
+    listPublicKeys: (channelId: number) =>
+      request<
+        {
+          userId: number;
+          publicKeyArmored: string;
+          fingerprint: string;
+        }[]
+      >(`/api/e2ee/channels/${channelId}/public-keys`),
+
+    /**
+     * Rotate the channel's AES key. <c>newKeyVersion</c>
+     * must be exactly <c>currentMax + 1</c>. The server
+     * wipes the channel's ciphertext history if
+     * ClearOnRotation is set.
+     */
+    rotate: (
+      channelId: number,
+      body: {
+        newKeyVersion: number;
+        wraps: { userId: number; encryptedAesKey: string }[];
+      },
+    ) =>
+      request<{
+        newKeyVersion: number;
+        newNextRotationUtc: string;
+        deletedMessages: number;
+        clearedOnRotation: boolean;
+      }>(`/api/e2ee/channels/${channelId}/rotate`, {
+        method: "POST",
+        body,
       }),
   },
 };

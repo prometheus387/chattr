@@ -43,4 +43,16 @@ public class User
     /// automatically cleans up their memberships.
     /// </summary>
     public ICollection<GuildMember> GuildMembers { get; set; } = new List<GuildMember>();
+
+    /// <summary>
+    /// PGP public keys uploaded by this user. Phase 2 of
+    /// the E2EE rewrite keeps one key per user (a
+    /// re-upload replaces the existing row, effectively
+    /// rotating the user's identity). Phase 3+ might
+    /// allow multiple keys per user for multi-device
+    /// support — at that point this becomes
+    /// <c>List&lt;UserPgpKey&gt;</c> with a "primary"
+    /// flag.
+    /// </summary>
+    public ICollection<UserPgpKey> PgpKeys { get; set; } = new List<UserPgpKey>();
 }

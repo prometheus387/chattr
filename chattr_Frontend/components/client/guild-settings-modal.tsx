@@ -16,6 +16,7 @@ import { OverviewTab } from "./guild-settings/overview-tab";
 import { RolesTab } from "./guild-settings/roles-tab";
 import { ChannelsTab } from "./guild-settings/channels-tab";
 import { MembersTab } from "./guild-settings/members-tab";
+import { OwnerTab } from "./guild-settings/owner-tab";
 
 /**
  * Which section of the settings dialog is currently active.
@@ -28,13 +29,14 @@ import { MembersTab } from "./guild-settings/members-tab";
  * permission to see; if they only have one (e.g. only CanManageChannels)
  * the sidebar shows just that entry and there's nothing to switch to.
  */
-export type SettingsTab = "overview" | "roles" | "channels" | "members";
+export type SettingsTab = "overview" | "roles" | "channels" | "members" | "owner";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   overview: "Overview",
   roles: "Roles",
   channels: "Channels",
   members: "Members",
+  owner: "Owner",
 };
 
 const TAB_DESCRIPTIONS: Record<SettingsTab, string> = {
@@ -42,6 +44,7 @@ const TAB_DESCRIPTIONS: Record<SettingsTab, string> = {
   roles: "Define who can do what. Owners can manage any role.",
   channels: "Create, rename, or delete channels in this guild.",
   members: "Assign roles to the people in this guild.",
+  owner: "Owner-only actions: archive, restore, delete, or burn the guild.",
 };
 
 interface Props {
@@ -86,8 +89,13 @@ export function GuildSettingsModal({ open, guild, onClose, onUpdated }: Props) {
     if (guild?.isAdministrator || guild?.canManageRoles) out.push("roles");
     if (guild?.canManageChannels) out.push("channels");
     if (guild?.isAdministrator || guild?.canManageRoles) out.push("members");
+    // Owner tab is gated on `isOwner` only — even the
+    // highest non-owner rank doesn't see archive /
+    // unarchive / delete / burn. These are the spec's
+    // "extra tab for the guild owner" actions.
+    if (guild?.isOwner) out.push("owner");
     return out;
-  }, [guild?.id, guild?.isAdministrator, guild?.canManageRoles, guild?.canManageChannels]);
+  }, [guild?.id, guild?.isOwner, guild?.isAdministrator, guild?.canManageRoles, guild?.canManageChannels]);
 
   const [tab, setTab] = useState<SettingsTab>("overview");
 
@@ -371,6 +379,12 @@ function Content({
             channels={channels}
             onDataChanged={onDataChanged}
           />
+        ) : tab === "owner" ? (
+          // The Owner tab gets the onClose callback so it
+          // can dismiss the modal after a delete or burn.
+          // Other tabs don't need this; they only mutate
+          // rows in place.
+          <OwnerTab guild={guild} onClose={onClose} onUpdated={onUpdated} />
         ) : (
           <MembersTab
             guild={guild}

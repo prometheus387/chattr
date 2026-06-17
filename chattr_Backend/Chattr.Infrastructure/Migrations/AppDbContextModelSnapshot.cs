@@ -121,6 +121,139 @@ namespace Chattr.Infrastructure.Migrations
                     b.ToTable("DmMessages");
                 });
 
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.Channel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("ClearOnRotation")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsEphemeral")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("NextRotationUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RotationInterval")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Name");
+
+                    b.ToTable("E2eeChannels");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.ChannelMember", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChannelId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ChannelId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("E2eeChannelMembers");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.GroupChannelKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChannelId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedAesKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KeyVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ChannelId", "UserId", "KeyVersion");
+
+                    b.ToTable("E2eeGroupChannelKeys");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.Message", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChannelId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Ciphertext")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("KeyVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("ChannelId", "CreatedAt");
+
+                    b.ToTable("E2eeMessages");
+                });
+
             modelBuilder.Entity("Chattr.Core.Entities.Guild", b =>
                 {
                     b.Property<int>("Id")
@@ -135,6 +268,9 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<string>("IconUrl")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsLimited")
                         .HasColumnType("boolean");
 
@@ -148,9 +284,21 @@ namespace Chattr.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("VanitySlug")
+                        .HasColumnType("text");
+
+                    b.Property<int>("VouchCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VouchLevel")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("VanitySlug")
+                        .IsUnique();
 
                     b.ToTable("Guilds");
                 });
@@ -249,6 +397,9 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Nickname")
+                        .HasColumnType("text");
+
                     b.Property<int>("RoleId")
                         .HasColumnType("integer");
 
@@ -265,6 +416,21 @@ namespace Chattr.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("GuildMembers");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.GuildMemberRole", b =>
+                {
+                    b.Property<int>("GuildMemberId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("GuildMemberId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("GuildMemberRoles");
                 });
 
             modelBuilder.Entity("Chattr.Core.Entities.GuildRole", b =>
@@ -314,6 +480,12 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<bool>("BypassSlowmode")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("CanActivateCamera")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanActivateLivestream")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("CanBanMembers")
                         .HasColumnType("boolean");
 
@@ -323,6 +495,9 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<bool>("CanChangeOwnNickname")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("CanConnectToVoice")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("CanCreateInvite")
                         .HasColumnType("boolean");
 
@@ -330,6 +505,12 @@ namespace Chattr.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("CanDeleteMessages")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanDeleteOwnMessage")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEditOwnMessage")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("CanKickMembers")
@@ -344,6 +525,9 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<bool>("CanMuteMembers")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("CanSendMessage")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("CanTimeoutMembers")
                         .HasColumnType("boolean");
 
@@ -353,12 +537,42 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<int>("RoleId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("ViewChatHistory")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId")
                         .IsUnique();
 
                     b.ToTable("GuildRolePermissions");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.GuildVouch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GuildId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("GuildId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("GuildVouches");
                 });
 
             modelBuilder.Entity("Chattr.Core.Entities.Message", b =>
@@ -382,8 +596,14 @@ namespace Chattr.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEdited")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -497,6 +717,36 @@ namespace Chattr.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Chattr.Core.Entities.UserPgpKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PublicKeyArmored")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserPgpKeys");
+                });
+
             modelBuilder.Entity("Chattr.Core.Entities.Channel", b =>
                 {
                     b.HasOne("Chattr.Core.Entities.Guild", "Guild")
@@ -544,6 +794,74 @@ namespace Chattr.Infrastructure.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("DmChannel");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.Channel", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.ChannelMember", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.E2EE.Channel", "Channel")
+                        .WithMany()
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Chattr.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Channel");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.GroupChannelKey", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.E2EE.Channel", "Channel")
+                        .WithMany()
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Chattr.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Channel");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.E2EE.Message", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.E2EE.Channel", "Channel")
+                        .WithMany()
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Chattr.Core.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Channel");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("Chattr.Core.Entities.GuildBan", b =>
@@ -619,6 +937,25 @@ namespace Chattr.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Chattr.Core.Entities.GuildMemberRole", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.GuildMember", "Member")
+                        .WithMany("AdditionalRoles")
+                        .HasForeignKey("GuildMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Chattr.Core.Entities.GuildRole", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("Chattr.Core.Entities.GuildRole", b =>
                 {
                     b.HasOne("Chattr.Core.Entities.Guild", "Guild")
@@ -639,6 +976,25 @@ namespace Chattr.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.GuildVouch", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Chattr.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Chattr.Core.Entities.Message", b =>
@@ -675,9 +1031,25 @@ namespace Chattr.Infrastructure.Migrations
                     b.Navigation("UsedBy");
                 });
 
+            modelBuilder.Entity("Chattr.Core.Entities.UserPgpKey", b =>
+                {
+                    b.HasOne("Chattr.Core.Entities.User", "User")
+                        .WithMany("PgpKeys")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Chattr.Core.Entities.Guild", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("Chattr.Core.Entities.GuildMember", b =>
+                {
+                    b.Navigation("AdditionalRoles");
                 });
 
             modelBuilder.Entity("Chattr.Core.Entities.GuildRole", b =>
@@ -688,6 +1060,8 @@ namespace Chattr.Infrastructure.Migrations
             modelBuilder.Entity("Chattr.Core.Entities.User", b =>
                 {
                     b.Navigation("GuildMembers");
+
+                    b.Navigation("PgpKeys");
                 });
 #pragma warning restore 612, 618
         }

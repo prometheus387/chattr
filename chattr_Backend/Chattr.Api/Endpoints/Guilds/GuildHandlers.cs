@@ -30,6 +30,7 @@ public static class GuildHandlers
         CreateGuildDto dto,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -117,6 +118,27 @@ public static class GuildHandlers
 
         await context.SaveChangesAsync(ct);
 
+        // Live broadcast: the new guild shows up in
+        // the creator's sidebar immediately. Other
+        // connected users see it on their next refresh
+        // (we don't fan out the create event to every
+        // user — too noisy for a large platform).
+        await live.GuildCreated(
+            new Chattr.Core.DTOs.Live.GuildEventPayload
+            {
+                Id = guild.Id,
+                Name = guild.Name,
+                IconUrl = guild.IconUrl,
+                MemberCount = 1,
+                IsOwner = true,
+                IsAdministrator = true,
+                IsArchived = guild.IsArchived,
+                VouchCount = 0,
+                VouchLevel = 0,
+                VanitySlug = null,
+            },
+            ownerUserId: userId.Value);
+
         return Results.Created(
             $"/api/guilds/{guild.Id}",
             new GuildSummaryDto
@@ -137,6 +159,7 @@ public static class GuildHandlers
                 CanKickMembers = true,
                 CanBanMembers = true,
                 CanCreateInvite = true,
+                IsArchived = guild.IsArchived,
             });
     }
 
@@ -165,6 +188,7 @@ public static class GuildHandlers
                 IconUrl = m.Guild!.IconUrl,
                 MemberCount = m.Guild!.Members.Count,
                 m.IsOwner,
+                m.Guild!.IsArchived,
                 IsAdmin = m.Role!.Permissions!.IsAdministrator,
                 CanManageChannels = m.Role!.Permissions!.CanManageChannels,
                 CanManageRoles = m.Role!.Permissions!.CanManageRoles,
@@ -193,6 +217,7 @@ public static class GuildHandlers
             CanKickMembers = r.IsOwner || r.IsAdmin || r.CanKickMembers,
             CanBanMembers = r.IsOwner || r.IsAdmin || r.CanBanMembers,
             CanCreateInvite = r.IsOwner || r.IsAdmin || r.CanCreateInvite,
+            IsArchived = r.IsArchived,
         }).OrderBy(g => g.Name).ToList());
     }
 
@@ -223,6 +248,7 @@ public static class GuildHandlers
                 m.Guild.Name,
                 m.Guild.IconUrl,
                 m.Guild.CreatedAt,
+                m.Guild.IsArchived,
                 MemberCount = m.Guild!.Members.Count,
                 m.IsOwner,
                 IsAdmin = m.Role!.Permissions!.IsAdministrator,
@@ -251,6 +277,7 @@ public static class GuildHandlers
             CanKickMembers = row.IsOwner || row.IsAdmin || row.CanKickMembers,
             CanBanMembers = row.IsOwner || row.IsAdmin || row.CanBanMembers,
             CanCreateInvite = row.IsOwner || row.IsAdmin || row.CanCreateInvite,
+            IsArchived = row.IsArchived,
             CreatedAt = row.CreatedAt,
         });
     }
@@ -426,6 +453,7 @@ public static class GuildHandlers
             CanKickMembers = true,
             CanBanMembers = true,
             CanCreateInvite = true,
+            IsArchived = guild.IsArchived,
         });
     }
 
@@ -447,6 +475,7 @@ public static class GuildHandlers
         AddMemberDto dto,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var actorId = principal.UserIdOrNull();
@@ -507,9 +536,86 @@ public static class GuildHandlers
         });
         await context.SaveChangesAsync(ct);
 
+        // ---- Live broadcast ---------------------------------------
+        // Two parallel broadcasts:
+        //   1. To the guild group — every existing member's
+        //      sidebar/member-list updates.
+        //   2. To the new user's user group — their sidebar
+        //      shows the new guild, and the client auto-joins
+        //      the guild group on the hub so future updates
+        //      land.
+        // The 2nd broadcast is the critical one — without it,
+        // the user has to reload to see the guild in their list.
+        var memberDto = await GetMemberDtoAsync(context, guildId, dto.UserId, ct);
+        // Pull the guild metadata + member-count for the
+        // broadcast in one round-trip. We do this AFTER
+        // the SaveChanges so the count is fresh.
+        var guildRow = await context.Guilds
+            .AsNoTracking()
+            .Where(g => g.Id == guildId)
+            .Select(g => new
+            {
+                g.Name,
+                g.IconUrl,
+                g.IsArchived,
+                g.VouchCount,
+                g.VouchLevel,
+                g.VanitySlug,
+            })
+            .FirstOrDefaultAsync(ct);
+        if (guildRow is null)
+        {
+            // The guild got deleted between the role
+            // check and the broadcast. Extremely rare
+            // but possible in a concurrent delete. We
+            // already saved the GuildMember row, so we
+            // just skip the live broadcast and return
+            // success — the orphaned member row will be
+            // cleaned up by the nightly retention job.
+            return Results.Created(
+                $"/api/guilds/{guildId}/members/{dto.UserId}",
+                memberDto);
+        }
+        var guildPayload = new Chattr.Core.DTOs.Live.GuildEventPayload
+        {
+            Id = guildId,
+            Name = guildRow.Name,
+            IconUrl = guildRow.IconUrl,
+            MemberCount = await context.GuildMembers.CountAsync(m => m.GuildId == guildId, ct),
+            IsOwner = false,
+            IsAdministrator = false, // will be refined on next /me/guilds fetch
+            IsArchived = guildRow.IsArchived,
+            VouchCount = guildRow.VouchCount,
+            VouchLevel = guildRow.VouchLevel,
+            VanitySlug = guildRow.VanitySlug,
+        };
+        var memberPayload = new Chattr.Core.DTOs.Live.MemberEventPayload
+        {
+            GuildId = guildId,
+            UserId = dto.UserId,
+            Username = memberDto.Username,
+            DisplayName = memberDto.DisplayName,
+            AvatarUrl = memberDto.AvatarUrl,
+            Nickname = null,
+            RoleId = memberDto.RoleId,
+            RoleName = memberDto.RoleName,
+            RoleColor = memberDto.RoleColor,
+            RoleIconSvg = memberDto.RoleIconSvg,
+            IsOwner = memberDto.IsOwner,
+            IsAdministrator = memberDto.IsAdministrator,
+            JoinedAt = memberDto.JoinedAt.ToString("O"),
+        };
+
+        // Fire-and-forget on the broadcasts. We do NOT await
+        // them inline because the response to the admin caller
+        // shouldn't block on SignalR group dispatch.
+        _ = Task.WhenAll(
+            live.MemberJoined(guildId, memberPayload),
+            live.YouWereAddedToGuild(dto.UserId, guildPayload));
+
         return Results.Created(
             $"/api/guilds/{guildId}/members/{dto.UserId}",
-            await GetMemberDtoAsync(context, guildId, dto.UserId, ct));
+            memberDto);
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using Chattr.Api.Endpoints;
 using Chattr.Api.Endpoints.Admin;
 using Chattr.Api.Endpoints.Channels;
 using Chattr.Api.Endpoints.Dms;
+using Chattr.Api.Endpoints.E2EE;
 using Chattr.Api.Endpoints.Guilds;
 using Chattr.Api.Endpoints.Invites;
 using Chattr.Api.Endpoints.Messages;
@@ -18,7 +19,12 @@ public static class RouteRegistrar
     {
         app.MapUserEndpoints();
         app.MapAuthEndpoints();
+        app.MapBurnAccountEndpoint();
         app.MapGuildEndpoints();
+        app.MapGuildExtensionsEndpoints();
+        app.MapGuildAdminEndpoints();
+        app.MapE2eeChannelEndpoints();
+        app.MapE2eePublicKeyEndpoints();
         app.MapRoleEndpoints();
         app.MapChannelEndpoints();
         app.MapMessageEndpoints();

@@ -155,6 +155,22 @@ public static class InviteHandlers
             return Results.Forbid();
         }
 
+        // Archived guilds don't accept new members. The
+        // archive handler already revokes pending invites,
+        // so the only way to hit this branch is a stale code
+        // racing the archive flow. We return 410 Gone for
+        // the same "this invite is no longer valid" semantics
+        // the other no-longer-valid paths use.
+        var guildArchived = await context.Guilds
+            .AsNoTracking()
+            .Where(g => g.Id == invite.GuildId)
+            .Select(g => g.IsArchived)
+            .FirstOrDefaultAsync(ct);
+        if (guildArchived)
+        {
+            return Results.StatusCode(410);
+        }
+
         // Already a member? Just return 200 — don't bump the use count
         // for a no-op, and don't fail the UX.
         var existing = await context.GuildMembers

@@ -27,6 +27,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // --- App services ------------------------------------------------------------
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<Chattr.Infrastructure.Services.E2EE.ChannelKeyService>();
+builder.Services.AddScoped<Chattr.Api.Realtime.LiveBroadcaster>();
 
 // --- AuthN / AuthZ -----------------------------------------------------------
 var jwt = builder.Configuration
@@ -80,6 +82,21 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 
 builder.Services.AddOpenApi();
 
+// --- SignalR ----------------------------------------------------------
+// E2EE live chat hub. JWT bearer is the same scheme
+// the REST endpoints use, so the hub authenticates
+// against the same tokens. The [Authorize] attribute
+// on the hub class blocks unauthenticated connects.
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    // Allow up to 1 MiB of incoming payload. The
+    // ciphertext for a 4 KiB plaintext is ~4 KiB +
+    // 28 bytes of overhead, so 1 MiB is plenty of
+    // headroom for any single message.
+    options.MaximumReceiveMessageSize = 1_048_576;
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -93,6 +110,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.RegisterAllEndpoints();
+app.MapE2eeChatHub();
+app.MapLiveHub();
 
 using (var scope = app.Services.CreateScope())
 {

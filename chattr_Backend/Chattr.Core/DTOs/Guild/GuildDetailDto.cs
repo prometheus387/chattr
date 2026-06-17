@@ -40,6 +40,15 @@ public class GuildDetailDto
     /// dropdown.
     /// </summary>
     public bool CanCreateInvite { get; init; }
+    /// <summary>
+    /// Owner-archive flag. When true, the guild's channels /
+    /// messages / roles are frozen for everyone except the
+    /// owner; new joins via invite codes are rejected with
+    /// 410. The settings UI surfaces this as a banner so
+    /// the owner knows the guild isn't accepting new
+    /// activity.
+    /// </summary>
+    public bool IsArchived { get; init; }
     public DateTime CreatedAt { get; init; }
 }
 

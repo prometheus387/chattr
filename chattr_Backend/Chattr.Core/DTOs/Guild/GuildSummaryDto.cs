@@ -23,4 +23,10 @@ public sealed class GuildSummaryDto
     /// dropdown.
     /// </summary>
     public bool CanCreateInvite { get; init; }
+    /// <summary>
+    /// Owner-archive flag. When true, the guild is frozen
+    /// for everyone except the owner. Drives the archived
+    /// banner in the sidebar / Owner tab.
+    /// </summary>
+    public bool IsArchived { get; init; }
 }
