@@ -107,7 +107,16 @@ export function LiveProvider({
         );
 
         conn.onreconnecting(() => setConnected(false, true));
-        conn.onreconnected(() => setConnected(true, false));
+        conn.onreconnected(() => {
+          setConnected(true, false);
+          // SignalR group membership belongs to a connection and is lost
+          // when automatic reconnect creates a new connection id.
+          // Re-subscribe every current guild or live updates silently stop
+          // after the first network interruption.
+          void fetchMyGuildIds().then((ids) =>
+            Promise.all(ids.map((id) => joinGuild(conn, id).catch(() => {}))),
+          );
+        });
         conn.onclose(() => setConnected(false, false));
       } catch (err) {
         // eslint-disable-next-line no-console

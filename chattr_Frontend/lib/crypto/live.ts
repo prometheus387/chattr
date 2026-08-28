@@ -29,6 +29,13 @@ import * as signalR from "@microsoft/signalr";
 
 import { useLiveStore, type LiveState } from "@/lib/store/liveStore";
 
+const backendOrigin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.replace(/\/+$/, "");
+const liveHubUrl = backendOrigin
+  ? `${backendOrigin}/hubs/live`
+  : process.env.NODE_ENV === "development"
+    ? "http://localhost:5147/hubs/live"
+    : "/hubs/live";
+
 let cachedConnection: signalR.HubConnection | null = null;
 let cachedToken: string | null = null;
 
@@ -198,7 +205,7 @@ export async function getLiveConnection(
   }
 
   cachedConnection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/live", {
+    .withUrl(liveHubUrl, {
       accessTokenFactory: () => token,
     })
     .withAutomaticReconnect({
@@ -272,6 +279,10 @@ export function subscribeLive(
   // ---- Guild ----
   subs.push(on(conn, "GuildCreated", (p: GuildEventPayload) => {
     apply((s) => ({ guilds: new Map(s.guilds).set(p.id, p) }));
+    // A newly-created guild did not exist during the provider's initial
+    // group subscription pass. Join it immediately so channel/member
+    // events continue to arrive without reconnecting or reloading.
+    void joinGuild(conn, p.id).catch(() => undefined);
   }));
   subs.push(on(conn, "GuildUpdated", (p: GuildEventPayload) => {
     apply((s) => ({ guilds: new Map(s.guilds).set(p.id, p) }));
@@ -298,9 +309,7 @@ export function subscribeLive(
     // call (e.g. we already auto-joined it on
     // connect) is a no-op.
     apply((s) => ({ guilds: new Map(s.guilds).set(p.id, p) }));
-    void getLiveConnection(cachedToken ?? "").then((conn) =>
-      joinGuild(conn, p.id).catch(() => undefined),
-    );
+    void joinGuild(conn, p.id).catch(() => undefined);
   }));
   subs.push(on(conn, "YouWereRemovedFromGuild", (p: GuildDeletedPayload) => {
     apply((s) => {
@@ -314,9 +323,7 @@ export function subscribeLive(
     });
     // Drop the hub subscription too. Best-effort —
     // we don't block the UI on it.
-    void getLiveConnection(cachedToken ?? "").then((conn) =>
-      leaveGuild(conn, p.guildId).catch(() => undefined),
-    );
+    void leaveGuild(conn, p.guildId).catch(() => undefined);
   }));
   subs.push(on(conn, "GuildArchived", (p: GuildArchivePayload) => {
     apply((s) => {

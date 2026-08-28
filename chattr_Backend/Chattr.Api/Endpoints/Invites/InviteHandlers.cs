@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Chattr.Api.Endpoints;
 using Chattr.Core.DTOs.Invite;
+using Chattr.Core.DTOs.Live;
 using Chattr.Core.Entities;
 using Chattr.Infrastructure.Data;
 using Chattr.Infrastructure.Services;
@@ -130,6 +131,7 @@ public static class InviteHandlers
         string code,
         ClaimsPrincipal principal,
         AppDbContext context,
+        Chattr.Api.Realtime.LiveBroadcaster live,
         CancellationToken ct)
     {
         var userId = principal.UserIdOrNull();
@@ -204,6 +206,87 @@ public static class InviteHandlers
 
         invite.UseCount += 1;
         await context.SaveChangesAsync(ct);
+
+        // Notify both sides of the membership change. The joining user's
+        // connection listens on user-{id}; after receiving this payload the
+        // client adds the guild to its sidebar and joins guild-{id}. Existing
+        // guild members receive MemberJoined through their guild group.
+        var joined = await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == invite.GuildId && m.UserId == userId.Value)
+            .Select(m => new
+            {
+                m.UserId,
+                Username = m.User!.Username,
+                DisplayName = string.IsNullOrEmpty(m.User!.DisplayName)
+                    ? m.User.Username
+                    : m.User.DisplayName,
+                m.User.AvatarUrl,
+                m.Nickname,
+                m.RoleId,
+                RoleName = m.Role!.Name,
+                RoleColor = m.Role.Color,
+                RoleIconSvg = m.Role.IconSvg,
+                m.IsOwner,
+                IsAdministrator = m.Role.Permissions!.IsAdministrator,
+                m.JoinedAt,
+            })
+            .SingleAsync(ct);
+
+        var guild = await context.Guilds
+            .AsNoTracking()
+            .Where(g => g.Id == invite.GuildId)
+            .Select(g => new
+            {
+                g.Id,
+                g.Name,
+                g.IconUrl,
+                MemberCount = g.Members.Count,
+                g.IsArchived,
+                g.VouchCount,
+                g.VouchLevel,
+                g.VanitySlug,
+            })
+            .SingleAsync(ct);
+
+        var permissions = await GuildPermissionService.GetEffectiveFlagsAsync(
+            context, invite.GuildId, userId.Value, ct);
+
+        await Task.WhenAll(
+            live.MemberJoined(invite.GuildId, new MemberEventPayload
+            {
+                GuildId = invite.GuildId,
+                UserId = joined.UserId,
+                Username = joined.Username,
+                DisplayName = joined.DisplayName,
+                AvatarUrl = joined.AvatarUrl,
+                Nickname = joined.Nickname,
+                RoleId = joined.RoleId,
+                RoleName = joined.RoleName,
+                RoleColor = joined.RoleColor,
+                RoleIconSvg = joined.RoleIconSvg,
+                IsOwner = joined.IsOwner,
+                IsAdministrator = joined.IsOwner || joined.IsAdministrator,
+                JoinedAt = joined.JoinedAt.ToString("O"),
+            }),
+            live.YouWereAddedToGuild(userId.Value, new GuildEventPayload
+            {
+                Id = guild.Id,
+                Name = guild.Name,
+                IconUrl = guild.IconUrl,
+                MemberCount = guild.MemberCount,
+                IsOwner = false,
+                IsAdministrator = permissions.IsAdministrator,
+                IsArchived = guild.IsArchived,
+                VouchCount = guild.VouchCount,
+                VouchLevel = guild.VouchLevel,
+                VanitySlug = guild.VanitySlug,
+                CanManageChannels = permissions.CanManageChannels,
+                CanManageRoles = permissions.CanManageRoles,
+                CanKickMembers = permissions.CanKickMembers,
+                CanBanMembers = permissions.CanBanMembers,
+                CanCreateInvite = permissions.CanCreateInvite,
+            }));
 
         return Results.Ok(new { guildId = invite.GuildId, alreadyMember = false });
     }

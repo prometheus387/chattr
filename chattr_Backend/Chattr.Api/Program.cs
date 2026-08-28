@@ -52,6 +52,24 @@ builder.Services
                 Encoding.UTF8.GetBytes(jwt.SigningKey)),
             ClockSkew = TimeSpan.FromSeconds(30),
         };
+        // Browsers cannot attach an Authorization header to the WebSocket
+        // upgrade. SignalR therefore sends the bearer token as
+        // `access_token` for hub requests. Restrict query-string token
+        // handling to /hubs so normal API endpoints keep header-only auth.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 
 builder.Services.AddAuthorization();

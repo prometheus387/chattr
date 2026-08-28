@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Chattr.Api.Endpoints;
 using Chattr.Core.Entities.E2EE;
@@ -244,7 +245,8 @@ public sealed class E2eeChatHub : Hub<IE2eeChatClient>
 
     private int? ResolveUserId()
     {
-        var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var claim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                    ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(claim, out var id) ? id : null;
     }
 }

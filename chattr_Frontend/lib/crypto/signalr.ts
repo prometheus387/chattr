@@ -32,6 +32,13 @@ import * as signalR from "@microsoft/signalr";
 
 import { api } from "@/lib/api";
 
+const backendOrigin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.replace(/\/+$/, "");
+const e2eeHubUrl = backendOrigin
+  ? `${backendOrigin}/hubs/e2ee-chat`
+  : process.env.NODE_ENV === "development"
+    ? "http://localhost:5147/hubs/e2ee-chat"
+    : "/hubs/e2ee-chat";
+
 
 /** Wire shape mirroring <c>E2eeChatHub.LiveMessageDto</c>. */
 export interface LiveMessage {
@@ -98,7 +105,7 @@ export async function getConnection(
   }
 
   cachedConnection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/e2ee-chat", {
+    .withUrl(e2eeHubUrl, {
       accessTokenFactory: () => token,
     })
     .withAutomaticReconnect({

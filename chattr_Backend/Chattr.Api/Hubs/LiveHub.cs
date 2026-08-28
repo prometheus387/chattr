@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Chattr.Api.Realtime;
 using Chattr.Core.DTOs.Live;
@@ -80,7 +82,11 @@ public sealed class LiveHub : Hub<ILiveClient>
 
     private int? ResolveUserId()
     {
-        var claim = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        // MapInboundClaims is disabled for the shared JWT handler, so the
+        // canonical JWT `sub` claim remains `sub`. Keep NameIdentifier as a
+        // fallback for tokens issued by older deployments.
+        var claim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                    ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(claim, out var id) ? id : null;
     }
 }
