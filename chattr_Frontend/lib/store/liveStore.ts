@@ -166,9 +166,21 @@ export function useLiveChannels(guildId: number | null): ChannelEventPayload[] {
 }
 
 export function useLiveMembers(guildId: number | null): MemberEventPayload[] {
-  return useLiveSelector((s) =>
-    guildId == null ? [] : s.membersByGuild.get(guildId) ?? [],
+  const [, setMembers] = useState<MemberEventPayload[]>(() =>
+    guildId == null ? [] : useLiveStore.getState().membersByGuild.get(guildId) ?? [],
   );
+
+  useEffect(() => {
+    const sync = () => setMembers(
+      guildId == null ? [] : useLiveStore.getState().membersByGuild.get(guildId) ?? [],
+    );
+    sync();
+    return useLiveStore.subscribe(sync);
+  }, [guildId]);
+
+  return guildId == null
+    ? []
+    : useLiveStore.getState().membersByGuild.get(guildId) ?? [];
 }
 
 export function useLiveMessages(channelId: number | null): MessageEventPayload[] {
@@ -238,6 +250,16 @@ export function seedLiveGuilds(guilds: GuildEventPayload[]): void {
     // hub's per-event updates keep working.)
     channelsByGuild: new Map(s.channelsByGuild),
     membersByGuild: new Map(s.membersByGuild),
+  }));
+}
+
+/** Seed one guild's member list from its REST snapshot. */
+export function seedLiveMembers(
+  guildId: number,
+  members: MemberEventPayload[],
+): void {
+  useLiveStore.setState((s) => ({
+    membersByGuild: new Map(s.membersByGuild).set(guildId, members),
   }));
 }
 

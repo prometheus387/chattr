@@ -162,14 +162,14 @@ export function RolesTab({ guild, roles, currentUserRoleId, onDataChanged }: Pro
         </button>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-white/[0.06]">
-        <table className="w-full table-fixed text-left text-[13px]">
+      <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+        <table className="w-full min-w-[720px] table-fixed text-left text-[13px]">
           <colgroup>
-            <col className="w-[36%]" />
-            <col className="w-[18%]" />
-            <col className="w-[14%]" />
+            <col className="w-[30%]" />
             <col className="w-[20%]" />
-            <col />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            <col className="w-[132px]" />
           </colgroup>
           <thead className="border-b border-white/[0.06] bg-white/[0.02] text-[10.5px] uppercase tracking-wider text-white/40">
             <tr>
@@ -177,7 +177,9 @@ export function RolesTab({ guild, roles, currentUserRoleId, onDataChanged }: Pro
               <th className="px-4 py-2.5">Colour</th>
               <th className="px-4 py-2.5">Display</th>
               <th className="px-4 py-2.5">Members</th>
-              <th className="px-4 py-2.5 text-right">Actions</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -421,7 +423,7 @@ function RoleRow({
             the user the count they actually want. */}
         <span className="text-white/30">—</span>
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="whitespace-nowrap px-4 py-3 text-right">
         <div className="inline-flex items-center gap-1">
           <button
             type="button"

@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Chattr.Api.Endpoints;
+using Chattr.Api.Realtime;
 using Chattr.Core.DTOs.Guild;
+using Chattr.Core.DTOs.Live;
 using Chattr.Core.Entities;
 using Chattr.Infrastructure.Data;
 using Chattr.Infrastructure.Services;
@@ -356,6 +358,7 @@ public static class RoleHandlers
         AssignMemberRoleDto dto,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var actorId = principal.UserIdOrNull();
@@ -378,23 +381,54 @@ public static class RoleHandlers
             .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == userId, ct);
         if (member is null) return Results.NotFound();
 
-        // Don't let the demote-to-everyone case accidentally nuke
-        // the IsOwner flag — owners always keep IsOwner=true. A
-        // future "transfer ownership" endpoint can flip it
-        // explicitly with the appropriate guard.
-        if (member.IsOwner && dto.RoleId != member.RoleId)
+        // The owner may change their own role while retaining the
+        // IsOwner flag. Nobody else may alter an owner's role.
+        if (member.IsOwner && actorId.Value != member.UserId)
         {
             return Results.Conflict(
-                "Cannot change the role of a guild owner. Transfer ownership first.");
+                "Only the guild owner can change their own role.");
         }
 
         member.RoleId = dto.RoleId;
         await context.SaveChangesAsync(ct);
 
+        var payload = await BuildMemberPayloadAsync(context, guildId, userId, ct);
+        if (payload is not null)
+        {
+            await live.MemberUpdated(guildId, payload);
+        }
+
         return Results.NoContent();
     }
 
     // ---- helpers ------------------------------------------------------------
+
+    private static Task<MemberEventPayload?> BuildMemberPayloadAsync(
+        AppDbContext context, int guildId, int userId, CancellationToken ct)
+    {
+        return context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new MemberEventPayload
+            {
+                GuildId = guildId,
+                UserId = m.UserId,
+                Username = m.User!.Username,
+                DisplayName = string.IsNullOrEmpty(m.User.DisplayName)
+                    ? m.User.Username
+                    : m.User.DisplayName,
+                AvatarUrl = m.User.AvatarUrl,
+                Nickname = m.Nickname,
+                RoleId = m.RoleId,
+                RoleName = m.Role!.Name,
+                RoleColor = m.Role.Color,
+                RoleIconSvg = m.Role.IconSvg,
+                IsOwner = m.IsOwner,
+                IsAdministrator = m.Role.Permissions!.IsAdministrator,
+                JoinedAt = m.JoinedAt.ToString("O"),
+            })
+            .FirstOrDefaultAsync(ct);
+    }
 
     private static async Task RenumberPositionsAsync(
         AppDbContext context, int guildId, int roleId, int newPosition, CancellationToken ct)

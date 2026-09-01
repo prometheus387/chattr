@@ -34,7 +34,19 @@ public class AddE2eeMemberDto
 public class RotateChannelKeysDto
 {
     public int NewKeyVersion { get; set; }
+    public string Mode { get; set; } = string.Empty;
     public List<MemberWrapDto> Wraps { get; set; } = new();
+    public List<ReencryptedMessageDto> ReencryptedMessages { get; set; } = new();
+}
+
+/// <summary>
+/// Ciphertext produced locally from an existing message's plaintext with the
+/// new channel key. The server never receives the plaintext.
+/// </summary>
+public class ReencryptedMessageDto
+{
+    public int MessageId { get; set; }
+    public string Ciphertext { get; set; } = string.Empty;
 }
 
 /// <summary>One per-member wrap inside a rotation request.</summary>
@@ -57,7 +69,8 @@ public class RotateResultDto
     public int NewKeyVersion { get; set; }
     public DateTime NewNextRotationUtc { get; set; }
     public int DeletedMessages { get; set; }
-    public bool ClearedOnRotation { get; set; }
+    public int ReencryptedMessages { get; set; }
+    public string Mode { get; set; } = string.Empty;
 }
 
 /// <summary>

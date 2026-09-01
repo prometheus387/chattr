@@ -34,6 +34,7 @@ public static class E2eeMessageHandlers
     public static async Task<IResult> GetMessages(
         int channelId,
         int? limit,
+        int? before,
         ClaimsPrincipal principal,
         AppDbContext context,
         CancellationToken ct)
@@ -64,8 +65,13 @@ public static class E2eeMessageHandlers
 
         // ---- Standard path: read the ciphertext tail ----
         var cap = Math.Clamp(limit ?? 50, 1, 200);
-        var rows = await context.Set<Message>()
-            .Where(m => m.ChannelId == channelId)
+        var query = context.Set<Message>()
+            .Where(m => m.ChannelId == channelId);
+        if (before is not null)
+        {
+            query = query.Where(m => m.Id < before.Value);
+        }
+        var rows = await query
             .OrderByDescending(m => m.Id)
             .Take(cap)
             .OrderBy(m => m.Id) // re-ascending for client convenience

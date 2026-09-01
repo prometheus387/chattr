@@ -73,18 +73,6 @@ public class GuildMemberDto
 }
 
 /// <summary>
-/// Body for <c>POST /api/guilds/{id}/members</c>. The actor picks
-/// an existing platform user and a role in the guild; the server
-/// creates the <c>GuildMember</c> row with <c>IsOwner=false</c>.
-/// Owner promotion is a separate transfer-ownership flow.
-/// </summary>
-public class AddMemberDto
-{
-    public int UserId { get; set; }
-    public int RoleId { get; set; }
-}
-
-/// <summary>
 /// Body for <c>POST /api/guilds/{id}/bans</c>. The user is removed
 /// from the guild if they're still a member and a <c>GuildBan</c>
 /// row is created (or refreshed if one already exists). Reason is

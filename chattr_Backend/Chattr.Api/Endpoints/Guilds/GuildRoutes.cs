@@ -20,12 +20,6 @@ public static class GuildRoutes
         group.MapGet("/{guildId:int}/members", GuildHandlers.GetGuildMembers)
              .RequireAuthorization();
 
-        // Add an existing platform user to the guild with a
-        // chosen role. Owner / IsAdministrator / CanManageRoles
-        // only — the handler re-checks via GuildPermissionService.
-        group.MapPost("/{guildId:int}/members", GuildHandlers.AddMember)
-             .RequireAuthorization();
-
         // Kick another member out. CanKickMembers / IsAdministrator.
         group.MapDelete("/{guildId:int}/members/{userId:int}", GuildHandlers.KickMember)
              .RequireAuthorization();

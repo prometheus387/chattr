@@ -292,9 +292,8 @@ public static class InviteHandlers
     }
 
     /// <summary>
-    /// Lists active invites for a guild. Admin-only (the same gate as
-    /// invite creation). The settings UI will call this to render a
-    /// table of pending links with their expiry / remaining uses.
+    /// Lists all invites for a guild. Admin-only. The settings UI uses
+    /// this for link, issuer, status, and usage-count reporting.
     /// </summary>
     public static async Task<IResult> ListInvites(
         int guildId,
@@ -310,18 +309,29 @@ public static class InviteHandlers
             return Results.Forbid();
         }
 
+        var now = DateTime.UtcNow;
         var invites = await context.GuildInvites
             .AsNoTracking()
             .Where(i => i.GuildId == guildId)
             .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new GuildInviteDto
+            {
+                Id = i.Id,
+                Code = i.Code,
+                GuildId = i.GuildId,
+                GuildName = i.Guild!.Name,
+                IssuedById = i.IssuedById,
+                IssuedByUsername = i.IssuedBy!.Username,
+                CreatedAt = i.CreatedAt,
+                UnlimitedUse = i.UnlimitedUse,
+                MaxUse = i.MaxUse,
+                UseCount = i.UseCount,
+                ValidUntil = i.ValidUntil,
+                Expired = (i.ValidUntil != null && i.ValidUntil <= now)
+                    || (!i.UnlimitedUse && i.MaxUse != null && i.UseCount >= i.MaxUse),
+            })
             .ToListAsync(ct);
-
-        var result = new List<GuildInviteDto>(invites.Count);
-        foreach (var inv in invites)
-        {
-            result.Add(await ToDtoAsync(context, inv, ct));
-        }
-        return Results.Ok(result);
+        return Results.Ok(invites);
     }
 
     /// <summary>

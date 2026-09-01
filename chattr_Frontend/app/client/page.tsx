@@ -20,10 +20,14 @@ import type {
 } from "@/types/client";
 import {
   seedLiveGuilds,
+  seedLiveMembers,
   useLiveGuilds,
+  useLiveMembers,
 } from "@/lib/store/liveStore";
 import { LiveProvider } from "@/lib/crypto/LiveProvider";
-import type { GuildEventPayload } from "@/lib/crypto/live";
+import { KeyProvider } from "@/lib/crypto/keyStore";
+import { ChannelKeyProvider } from "@/lib/crypto/channelKey";
+import type { GuildEventPayload, MemberEventPayload } from "@/lib/crypto/live";
 import { GuildSidebar } from "@/components/client/guild-sidebar";
 import { ChannelSidebar, type SidebarMode } from "@/components/client/channel-sidebar";
 import { MessageList } from "@/components/client/message-list";
@@ -73,15 +77,19 @@ function defaultScopeFromGuilds(guilds: GuildSummary[]): Scope {
 
 export default function ClientPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center text-sm text-white/50">
-          Loading…
-        </div>
-      }
-    >
-      <ClientPageInner />
-    </Suspense>
+    <KeyProvider>
+      <ChannelKeyProvider>
+        <Suspense
+          fallback={
+            <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center text-sm text-white/50">
+              Loading…
+            </div>
+          }
+        >
+          <ClientPageInner />
+        </Suspense>
+      </ChannelKeyProvider>
+    </KeyProvider>
   );
 }
 
@@ -112,7 +120,6 @@ function ClientPageInner() {
   // more often (people join/leave, role colours get tweaked)
   // and the user sidebar needs to refresh on a different
   // cadence than the channel tree.
-  const [membersByGuild, setMembersByGuild] = useState<Record<number, GuildMember[]>>({});
   const [rolesByGuild, setRolesByGuild] = useState<Record<number, Role[]>>({});
   const [dms, setDms] = useState<DmSummary[]>([]);
   const [dmMessages, setDmMessages] = useState<DmMessage[]>([]);
@@ -123,6 +130,9 @@ function ClientPageInner() {
     channelId: null,
     dmId: null,
   });
+  const selectedGuildId =
+    selection.scope.kind === "guild" ? selection.scope.guildId : null;
+  const liveMembers = useLiveMembers(selectedGuildId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [leavingGuild, setLeavingGuild] = useState(false);
@@ -349,7 +359,7 @@ function ClientPageInner() {
     // may now be stale, so bypass it and re-fetch. Tick 0 is
     // the initial mount — for that we honour the cache.
     const bypassCache = memberReloadTick > 0;
-    if (!bypassCache && membersByGuild[guildId] && rolesByGuild[guildId]) {
+    if (!bypassCache && rolesByGuild[guildId]) {
       return;
     }
     let cancelled = false;
@@ -360,7 +370,14 @@ function ClientPageInner() {
           api.guildRoles.list(guildId),
         ]);
         if (cancelled) return;
-        setMembersByGuild((prev) => ({ ...prev, [guildId]: members }));
+        seedLiveMembers(
+          guildId,
+          members.map((member): MemberEventPayload => ({
+            ...member,
+            guildId,
+            nickname: null,
+          })),
+        );
         setRolesByGuild((prev) => ({ ...prev, [guildId]: roles }));
       } catch (err) {
         if (cancelled) return;
@@ -373,7 +390,7 @@ function ClientPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [selection.scope, membersByGuild, rolesByGuild, memberReloadTick]);
+  }, [selection.scope, rolesByGuild, memberReloadTick]);
 
   // ---- Reload DMs when entering friends mode (cheap; small payload) ------
   useEffect(() => {
@@ -971,11 +988,13 @@ function ClientPageInner() {
    * without knowing about the cache layout.
    */
   const activeMembers = useMemo<GuildMember[]>(
-    () =>
-      selection.scope.kind === "guild"
-        ? membersByGuild[selection.scope.guildId] ?? []
-        : [],
-    [membersByGuild, selection.scope],
+    () => liveMembers.map((member) => ({
+      ...member,
+      roleId: member.roleId ?? 0,
+      roleName: member.roleName ?? "",
+      roleColor: member.roleColor ?? "",
+    })),
+    [liveMembers],
   );
   const activeRoles = useMemo<Role[]>(
     () =>
@@ -1197,6 +1216,7 @@ function ClientPageInner() {
               viewerUserId={auth.user?.id ?? -1}
               viewer={{
                 canAssign:
+                  !!activeGuild?.isOwner ||
                   !!activeGuild?.isAdministrator ||
                   !!activeGuild?.canManageRoles,
                 canKick: !!activeGuild?.canKickMembers,
@@ -1222,24 +1242,12 @@ function ClientPageInner() {
       </main>
       {presence && selection.scope.kind === "guild" && (
         <UserList
-          members={membersByGuild[selection.scope.guildId] ?? []}
+          members={activeMembers}
           roles={rolesByGuild[selection.scope.guildId] ?? []}
           presences={presence.users}
           showOffline={presence.showOffline}
-          // Per-guild moderation: clicking a member (left or
-          // right) opens the page-level context menu. We pass
-          // the same permission view as the chat and settings
-          // modal use, so a member who's hidden in one place
-          // is hidden everywhere.
-          untargetableIds={untargetableIds}
-          viewerUserId={auth.user?.id ?? -1}
-          viewer={{
-            canAssign:
-              !!activeGuild?.isAdministrator ||
-              !!activeGuild?.canManageRoles,
-            canKick: !!activeGuild?.canKickMembers,
-            canBan: !!activeGuild?.canBanMembers,
-          }}
+          // Every guild member opens the shared context menu,
+          // including the viewer. The menu gates each action.
           onMemberAction={openMemberMenu}
           // Right-side user list is only visible on lg+ (1024px+).
           // On mobile/tablet the Friends list in the center covers the
@@ -1332,7 +1340,9 @@ function ClientPageInner() {
           viewerUserId={auth.user?.id ?? -1}
           viewer={{
             canAssign:
-              !!activeGuild.isAdministrator || !!activeGuild.canManageRoles,
+              !!activeGuild.isOwner ||
+              !!activeGuild.isAdministrator ||
+              !!activeGuild.canManageRoles,
             canKick: !!activeGuild.canKickMembers,
             canBan: !!activeGuild.canBanMembers,
           }}

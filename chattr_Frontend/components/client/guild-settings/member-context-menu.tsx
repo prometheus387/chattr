@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 
 import { api } from "@/lib/api";
@@ -53,10 +54,9 @@ interface Props {
 }
 
 /**
- * Right-click context menu for a guild member row. Renders as
- * a fixed-positioned popover at the click point, with up to
- * three actions: "Assign role", "Kick", "Ban". Destructive
- * actions (kick, ban) open a confirm modal before firing.
+ * Context menu for any guild member, including the viewer.
+ * Viewing the profile is always available; role assignment,
+ * kick and ban remain permission-gated.
  *
  * The menu closes on:
  *   - clicking outside (mousedown on document)
@@ -107,10 +107,7 @@ export function MemberContextMenu({
       setClamped({ x, y });
     });
     return () => window.cancelAnimationFrame(id);
-    // We only want to run this on mount; subsequent position
-    // changes are not supported (the menu is short-lived).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [position.x, position.y]);
 
   // Click-outside + Escape close. We intentionally don't
   // close on Escape when a confirm dialog is open — the
@@ -139,27 +136,30 @@ export function MemberContextMenu({
   const isSelf = member.userId === viewerUserId;
   const isUntargetable = untargetableIds.has(member.userId);
 
-  const canAssign = viewer.canAssign && !isOwner;
+  const canAssign = viewer.canAssign && (!isOwner || (isSelf && guild.isOwner));
   const canKick = viewer.canKick && !isOwner && !isSelf && !isUntargetable;
   const canBan = viewer.canBan && !isOwner && !isSelf && !isUntargetable;
 
-  const anyAction = canAssign || canKick || canBan;
-
-  if (!anyAction) {
-    return (
-      <div
-        ref={menuRef}
-        role="menu"
-        style={{ left: clamped.x, top: clamped.y }}
-        className="auth-card-enter fixed z-[60] min-w-[200px] overflow-hidden rounded-md border border-white/[0.08] bg-[#16181d] py-1 shadow-2xl shadow-black/60"
-        data-context-menu
-      >
-        <div className="px-3 py-2 text-[12px] text-white/40">
-          You can't moderate this member.
-        </div>
-      </div>
-    );
-  }
+  const copyUserId = async () => {
+    const value = String(member.userId);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = value;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      onClose();
+    } catch {
+      // Keep the menu open so the user can retry.
+    }
+  };
 
   const onKick = async () => {
     setError(null);
@@ -207,7 +207,7 @@ export function MemberContextMenu({
     }
   };
 
-  return (
+  return createPortal(
     <>
       <div
         ref={menuRef}
@@ -217,6 +217,19 @@ export function MemberContextMenu({
         data-context-menu
       >
         <MenuHeader name={member.displayName} sub={`@${member.username}`} />
+        <MenuItem
+          label={isSelf ? "View my profile" : "View profile"}
+          icon={<ProfileIcon />}
+          onClick={() => {
+            onClose();
+            window.location.assign(`/u/${encodeURIComponent(member.username)}`);
+          }}
+        />
+        <MenuItem
+          label="Copy user ID"
+          icon={<IdIcon />}
+          onClick={() => void copyUserId()}
+        />
         {canAssign ? (
           <MenuItem
             label="Assign role"
@@ -281,7 +294,8 @@ export function MemberContextMenu({
           onConfirm={onBan}
         />
       ) : null}
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -592,6 +606,45 @@ function AssignIcon() {
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="m17 11 2 2-4 4" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={13}
+      height={13}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
+function IdIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={13}
+      height={13}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8" cy="11" r="2" />
+      <path d="M5.5 16a3 3 0 0 1 5 0M13 10h5M13 14h4" />
     </svg>
   );
 }

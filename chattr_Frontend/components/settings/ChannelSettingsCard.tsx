@@ -11,6 +11,11 @@ import {
 } from "@heroui/react";
 
 import { api } from "@/lib/api";
+import {
+  rotateChannelKey,
+  type RotationMode,
+  type RotationProgress,
+} from "@/lib/crypto/rotation";
 
 /**
  * Channel settings card (HeroUI). Phase-2 spec: the
@@ -52,6 +57,11 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
   /** True after the user has explicitly un-checked
    *  ClearOnRotation. Reset on save / cancel. */
   const [showWarning, setShowWarning] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotationMode, setRotationMode] = useState<RotationMode>("reencrypt");
+  const [rotating, setRotating] = useState(false);
+  const [rotationProgress, setRotationProgress] =
+    useState<RotationProgress | null>(null);
 
   // ---- Load channel metadata on mount -------------------------
   useEffect(() => {
@@ -99,6 +109,33 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
     }
   };
 
+  const onRotate = async () => {
+    setRotating(true);
+    setRotationProgress(null);
+    setError(null);
+    const outcome = await rotateChannelKey(
+      channelId,
+      rotationMode,
+      setRotationProgress,
+    );
+    if (outcome.kind === "rotated") {
+      const updated = await api.e2ee.getChannel(channelId);
+      setChannel(updated);
+      setLocalClear(updated.clearOnRotation);
+      setRotateOpen(false);
+      onNotify?.(
+        "info",
+        rotationMode === "delete"
+          ? `Key rotated. ${outcome.deletedMessages} old messages deleted.`
+          : `Key rotated. ${outcome.reencryptedMessages} messages re-encrypted locally.`,
+      );
+    } else if (outcome.kind === "skipped") {
+      setError(outcome.reason);
+      onNotify?.("error", outcome.reason);
+    }
+    setRotating(false);
+  };
+
   // ---- Render --------------------------------------------------
 
   if (loading) {
@@ -139,6 +176,7 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
   const showInlineWarning = showWarning && !clear;
 
   return (
+    <>
     <Card className="w-full">
       <Card.Header className="flex items-center justify-between gap-2">
         <span>Channel settings</span>
@@ -212,6 +250,13 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
         ) : null}
       </Card.Content>
       <Card.Footer className="flex items-center justify-end gap-2">
+        <Button
+          variant="secondary"
+          isDisabled={saving || rotating}
+          onPress={() => setRotateOpen(true)}
+        >
+          Rotate key
+        </Button>
         <Tooltip>
           <Button
             variant="secondary"
@@ -235,6 +280,97 @@ export function ChannelSettingsCard({ channelId, onNotify }: Props) {
         </Button>
       </Card.Footer>
     </Card>
+    {rotateOpen ? (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rotate-key-title"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !rotating) {
+            setRotateOpen(false);
+          }
+        }}
+      >
+        <div className="w-full max-w-[520px] rounded-lg border border-white/[0.09] bg-[#0c0d11] shadow-2xl shadow-black/70">
+          <div className="border-b border-white/[0.07] px-5 py-4">
+            <h3 id="rotate-key-title" className="text-[16px] font-semibold text-white">
+              Rotate AES key
+            </h3>
+            <p className="mt-1 text-[12px] leading-relaxed text-white/50">
+              A new AES-256 key is generated locally and wrapped separately for every member.
+            </p>
+          </div>
+          <div className="space-y-3 px-5 py-4">
+            <button
+              type="button"
+              disabled={rotating}
+              onClick={() => setRotationMode("delete")}
+              className={`w-full rounded-md border p-3 text-left transition-colors ${
+                rotationMode === "delete"
+                  ? "border-rose-300/40 bg-rose-400/[0.08]"
+                  : "border-white/[0.08] hover:bg-white/[0.03]"
+              }`}
+            >
+              <span className="block text-[13px] font-medium text-white/90">
+                Rotate and delete old messages
+              </span>
+              <span className="mt-1 block text-[11.5px] leading-relaxed text-white/45">
+                Permanently deletes the complete encrypted history. This cannot be undone.
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={rotating}
+              onClick={() => setRotationMode("reencrypt")}
+              className={`w-full rounded-md border p-3 text-left transition-colors ${
+                rotationMode === "reencrypt"
+                  ? "border-amber-300/40 bg-amber-400/[0.08]"
+                  : "border-white/[0.08] hover:bg-white/[0.03]"
+              }`}
+            >
+              <span className="block text-[13px] font-medium text-white/90">
+                Rotate and re-encrypt old messages
+              </span>
+              <span className="mt-1 block text-[11.5px] leading-relaxed text-white/45">
+                Downloads the ciphertext history, decrypts it locally and encrypts it again with the new key.
+              </span>
+            </button>
+            <div role="alert" className="rounded-md border border-amber-300/30 bg-amber-400/[0.07] px-3 py-2.5 text-[11.5px] leading-relaxed text-amber-100/85">
+              <b>Warning:</b> This operation may take some time and use significant CPU, memory and bandwidth. Keep this tab open until it finishes.
+            </div>
+            {rotationProgress ? (
+              <p className="text-[11.5px] tabular-nums text-white/55">
+                {rotationProgress.phase === "loading"
+                  ? `Loading history: ${rotationProgress.completed} messages`
+                  : rotationProgress.phase === "reencrypting"
+                    ? `Re-encrypting locally: ${rotationProgress.completed} / ${rotationProgress.total}`
+                    : "Uploading encrypted result..."}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-white/[0.07] px-5 py-4">
+            <button
+              type="button"
+              disabled={rotating}
+              onClick={() => setRotateOpen(false)}
+              className="h-9 rounded-md px-3 text-[12.5px] text-white/65 hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={rotating}
+              onClick={() => void onRotate()}
+              className="h-9 min-w-[110px] rounded-md bg-white px-3 text-[12.5px] font-medium text-[#0b0c0f] disabled:opacity-50"
+            >
+              {rotating ? "Rotating..." : "Rotate key"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
 

@@ -64,8 +64,7 @@ public sealed class LiveBroadcaster
 
     /// <summary>
     /// Pushed to <c>user-{newUserId}</c> when the
-    /// user is added to a guild (via the admin
-    /// endpoint, an invite-accept, or self-join).
+    /// user joins a guild by accepting an invite.
     /// The full guild payload lets the client
     /// render the new guild in the sidebar without
     /// an extra fetch.

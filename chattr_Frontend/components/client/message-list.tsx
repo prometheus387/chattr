@@ -12,6 +12,7 @@ import clsx from "clsx";
 import type { GuildMember, Message, Role } from "@/types/client";
 import { api } from "@/lib/api";
 import { ApiError } from "@/types/api";
+import { MessageContent } from "@/components/client/message-content";
 
 interface Props {
   messages: Message[];
@@ -583,14 +584,14 @@ export function MessageList({
                     onCancel={() => setEditingId(null)}
                   />
                 ) : (
-                  <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed text-white/85">
-                    {m.content}
+                  <div className="text-[14px] leading-relaxed text-white/85">
+                    <MessageContent content={m.content} />
                     {m.editedAt && (
                       <span className="ml-1.5 text-[10.5px] text-white/30">
                         (edited)
                       </span>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
 

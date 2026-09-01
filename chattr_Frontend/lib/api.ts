@@ -276,27 +276,13 @@ export const api = {
      * Assign a role to a member. The actor's role must be above
      * the target role in the hierarchy (or the actor must be
      * the guild owner) — the server enforces this. 204 on
-     * success, 403 if the actor lacks the privilege, 409 if
-     * the target is a guild owner (owners can't be demoted
-     * without a transfer-ownership flow).
+     * success, 403 if the actor lacks the privilege. Guild
+     * owners may change their own role but remain owners.
      */
     assignRole: (guildId: number, userId: number, roleId: number) =>
       request<void>(`/api/guilds/${guildId}/members/${userId}/role`, {
         method: "PATCH",
         body: { roleId },
-      }),
-    /**
-     * Add an existing platform user to the guild with a chosen
-     * role. Owner / IsAdministrator / CanManageRoles only.
-     * Returns the freshly-inserted member row in the same
-     * shape as `list`, so the settings UI can splice it in
-     * without a re-fetch. 404 if the user or role don't exist,
-     * 409 if the user is already a member.
-     */
-    add: (guildId: number, payload: { userId: number; roleId: number }) =>
-      request<GuildMember>(`/api/guilds/${guildId}/members`, {
-        method: "POST",
-        body: payload,
       }),
     /**
      * Kick another member out of the guild. Owner /
@@ -614,7 +600,7 @@ export const api = {
      * right wrapped AES key from its store to decrypt
      * with.
      */
-    getMessages: (channelId: number, limit = 50) =>
+    getMessages: (channelId: number, limit = 50, before?: number) =>
       request<
         {
           id: number;
@@ -627,7 +613,9 @@ export const api = {
           isEphemeral: boolean;
           ephemeralId: string | null;
         }[]
-      >(`/api/e2ee/channels/${channelId}/messages?limit=${limit}`),
+      >(
+        `/api/e2ee/channels/${channelId}/messages?limit=${limit}${before ? `&before=${before}` : ""}`,
+      ),
 
     /**
      * Add a user to the channel. <c>encryptedAesKey</c>
@@ -645,12 +633,14 @@ export const api = {
       ),
 
     /** Caller's wrapped key for this channel. */
-    getMyKey: (channelId: number) =>
+    getMyKey: (channelId: number, keyVersion?: number) =>
       request<{
         keyVersion: number;
         encryptedAesKey: string;
         createdAt: string;
-      }>(`/api/e2ee/channels/${channelId}/my-key`),
+      }>(
+        `/api/e2ee/channels/${channelId}/my-key${keyVersion === undefined ? "" : `?keyVersion=${keyVersion}`}`,
+      ),
 
     /** All members' PGP public keys. Used by the
      *  rotation flow. */
@@ -673,14 +663,17 @@ export const api = {
       channelId: number,
       body: {
         newKeyVersion: number;
+        mode: "delete" | "reencrypt";
         wraps: { userId: number; encryptedAesKey: string }[];
+        reencryptedMessages: { messageId: number; ciphertext: string }[];
       },
     ) =>
       request<{
         newKeyVersion: number;
         newNextRotationUtc: string;
         deletedMessages: number;
-        clearedOnRotation: boolean;
+        reencryptedMessages: number;
+        mode: "delete" | "reencrypt";
       }>(`/api/e2ee/channels/${channelId}/rotate`, {
         method: "POST",
         body,

@@ -16,6 +16,7 @@ import { OverviewTab } from "./guild-settings/overview-tab";
 import { RolesTab } from "./guild-settings/roles-tab";
 import { ChannelsTab } from "./guild-settings/channels-tab";
 import { MembersTab } from "./guild-settings/members-tab";
+import { InvitesTab } from "./guild-settings/invites-tab";
 import { OwnerTab } from "./guild-settings/owner-tab";
 
 /**
@@ -24,18 +25,26 @@ import { OwnerTab } from "./guild-settings/owner-tab";
  * - `roles`     : role CRUD — IsAdministrator OR CanManageRoles
  * - `channels`  : channel CRUD — IsAdministrator OR CanManageChannels
  * - `members`   : member role assignment — IsAdministrator OR CanManageRoles
+ * - `invites`   : created links and usage — IsAdministrator only
  *
  * The active tab is initialised to the first one the user has
  * permission to see; if they only have one (e.g. only CanManageChannels)
  * the sidebar shows just that entry and there's nothing to switch to.
  */
-export type SettingsTab = "overview" | "roles" | "channels" | "members" | "owner";
+export type SettingsTab =
+  | "overview"
+  | "roles"
+  | "channels"
+  | "members"
+  | "invites"
+  | "owner";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   overview: "Overview",
   roles: "Roles",
   channels: "Channels",
   members: "Members",
+  invites: "Invites",
   owner: "Owner",
 };
 
@@ -44,6 +53,7 @@ const TAB_DESCRIPTIONS: Record<SettingsTab, string> = {
   roles: "Define who can do what. Owners can manage any role.",
   channels: "Create, rename, or delete channels in this guild.",
   members: "Assign roles to the people in this guild.",
+  invites: "Review active and expired invite links and their usage.",
   owner: "Owner-only actions: archive, restore, delete, or burn the guild.",
 };
 
@@ -65,7 +75,7 @@ interface Props {
  * panel. Visibility of every tab is gated by the per-guild
  * permission flags the parent passes in via `guild`, so a member
  * with `CanManageChannels` only sees the Channels tab, while an
- * admin sees all four.
+ * admin sees all management tabs.
  *
  * Permission gate for opening the modal: the parent must only
  * render it for users with at least one of the per-guild manage
@@ -89,6 +99,7 @@ export function GuildSettingsModal({ open, guild, onClose, onUpdated }: Props) {
     if (guild?.isAdministrator || guild?.canManageRoles) out.push("roles");
     if (guild?.canManageChannels) out.push("channels");
     if (guild?.isAdministrator || guild?.canManageRoles) out.push("members");
+    if (guild?.isAdministrator) out.push("invites");
     // Owner tab is gated on `isOwner` only — even the
     // highest non-owner rank doesn't see archive /
     // unarchive / delete / burn. These are the spec's
@@ -385,6 +396,13 @@ function Content({
           // Other tabs don't need this; they only mutate
           // rows in place.
           <OwnerTab guild={guild} onClose={onClose} onUpdated={onUpdated} />
+        ) : tab === "invites" ? (
+          <InvitesTab
+            guild={guild}
+            members={members}
+            roles={roles}
+            onDataChanged={onDataChanged}
+          />
         ) : (
           <MembersTab
             guild={guild}

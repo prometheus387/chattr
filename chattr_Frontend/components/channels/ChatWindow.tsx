@@ -36,6 +36,8 @@ import {
   sendMessage,
   type LiveMessage,
 } from "@/lib/crypto/signalr";
+import { ChannelSettingsCard } from "@/components/settings/ChannelSettingsCard";
+import { MessageContent } from "@/components/client/message-content";
 /**
  * HeroUI chat window. Two modes:
  * <list type="bullet">
@@ -89,6 +91,7 @@ export function ChatWindow({ channel, currentUserId, authToken }: Props) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Track the last channel id we mounted for, so we
   // can drop the previous SignalR subscription when
@@ -276,11 +279,22 @@ export function ChatWindow({ channel, currentUserId, authToken }: Props) {
             </Chip>
           ) : null}
         </div>
-        <Chip color="default" variant="soft">
-          {channel.isEphemeral
-            ? "Self-destruct on leave"
-            : "Standard (encrypted history)"}
-        </Chip>
+        <div className="flex items-center gap-2">
+          <Chip color="default" variant="soft">
+            {channel.isEphemeral
+              ? "Self-destruct on leave"
+              : "Standard (encrypted history)"}
+          </Chip>
+          {channel.isCreator ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => setSettingsOpen(true)}
+            >
+              Channel settings
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <Card.Content className="flex-1 overflow-y-auto">
         {loading ? (
@@ -327,11 +341,11 @@ export function ChatWindow({ channel, currentUserId, authToken }: Props) {
                 <div
                   className={
                     m.senderId === currentUserId
-                      ? "rounded-2xl bg-primary-500/20 px-3 py-1.5 text-sm"
-                      : "rounded-2xl bg-default-100 px-3 py-1.5 text-sm"
+                      ? "max-w-full rounded-2xl bg-primary-500/20 px-3 py-1.5 text-sm"
+                      : "max-w-full rounded-2xl bg-default-100 px-3 py-1.5 text-sm"
                   }
                 >
-                  {m.text}
+                  <MessageContent content={m.text} />
                 </div>
               </li>
             ))}
@@ -361,6 +375,23 @@ export function ChatWindow({ channel, currentUserId, authToken }: Props) {
           Send
         </Button>
       </CardFooter>
+      {settingsOpen ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSettingsOpen(false);
+          }}
+        >
+          <div className="w-full max-w-[640px]">
+            <ChannelSettingsCard channelId={channel.id} />
+            <div className="mt-2 flex justify-end">
+              <Button variant="secondary" onPress={() => setSettingsOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }

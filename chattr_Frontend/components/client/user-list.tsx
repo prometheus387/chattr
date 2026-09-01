@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from
 import clsx from "clsx";
 import type { GuildMember, Role, UserPresence } from "@/types/client";
 import { isOnline } from "@/lib/presence";
-import type { ViewerPermissions } from "./message-list";
 
 interface Props {
   /** Members of the current guild, with their role metadata. */
@@ -18,14 +17,6 @@ interface Props {
   /** When true, show offline users too. Otherwise hide them. */
   showOffline: boolean;
   className?: string;
-  /**
-   * Members the viewer is not allowed to moderate. Used to
-   * gate the click handler so the cursor and affordances are
-   * only "active" for actually-targetable users.
-   */
-  untargetableIds?: Set<number>;
-  viewerUserId?: number;
-  viewer?: ViewerPermissions;
   /**
    * Activate the page-level context menu for a member. Both
    * left and right click route through this — see the matching
@@ -52,8 +43,8 @@ interface Props {
  *
  * Left- or right-clicking a row opens the page-level member
  * context menu at the click point. The cursor changes to a
- * pointer for any row that's actually targetable (not the
- * viewer, not the owner, not over-tier).
+ * pointer for every member, including the current user. The
+ * context menu itself decides which actions are permitted.
  */
 export function UserList({
   members,
@@ -61,8 +52,6 @@ export function UserList({
   presences,
   showOffline,
   className,
-  untargetableIds,
-  viewerUserId,
   onMemberAction,
 }: Props) {
   // Look up presence by userId. We can't assume the same
@@ -173,8 +162,7 @@ export function UserList({
             members={ms}
             presenceById={presenceById}
             showOffline={showOffline}
-            untargetableIds={untargetableIds}
-            viewerUserId={viewerUserId}
+            memberActionsEnabled={!!onMemberAction}
             onRowMouseDown={onRowMouseDown}
             onRowContextMenu={onRowContextMenu}
           />
@@ -189,8 +177,7 @@ export function UserList({
             members={sections.others}
             presenceById={presenceById}
             showOffline={showOffline}
-            untargetableIds={untargetableIds}
-            viewerUserId={viewerUserId}
+            memberActionsEnabled={!!onMemberAction}
             onRowMouseDown={onRowMouseDown}
             onRowContextMenu={onRowContextMenu}
           />
@@ -207,8 +194,7 @@ interface RoleSectionProps {
   members: GuildMember[];
   presenceById: Map<number, UserPresence>;
   showOffline: boolean;
-  untargetableIds?: Set<number>;
-  viewerUserId?: number;
+  memberActionsEnabled: boolean;
   onRowMouseDown: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
   onRowContextMenu: (member: GuildMember, e: ReactMouseEvent<HTMLLIElement>) => void;
 }
@@ -220,8 +206,7 @@ function RoleSection({
   members,
   presenceById,
   showOffline,
-  untargetableIds,
-  viewerUserId,
+  memberActionsEnabled,
   onRowMouseDown,
   onRowContextMenu,
 }: RoleSectionProps) {
@@ -250,16 +235,7 @@ function RoleSection({
             member={m}
             presence={presenceById.get(m.userId) ?? null}
             showOffline={showOffline}
-            // Owners are always untargetable (server refuses
-            // to kick/ban them). The viewer is also excluded
-            // — no point showing a menu whose only "action"
-            // would be no-op.
-            isClickable={
-              !!untargetableIds &&
-              viewerUserId !== undefined &&
-              !untargetableIds.has(m.userId) &&
-              m.userId !== viewerUserId
-            }
+            isClickable={memberActionsEnabled}
             onRowMouseDown={onRowMouseDown}
             onRowContextMenu={onRowContextMenu}
           />

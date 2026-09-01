@@ -90,18 +90,24 @@ public static class E2eeChannelHandlers
             var wraps = body.Wraps
                 .Select(w => new ChannelKeyService.MemberWrap(w.UserId, w.EncryptedAesKey))
                 .ToList();
+            var replacements = body.ReencryptedMessages
+                .Select(m => new ChannelKeyService.MessageReplacement(m.MessageId, m.Ciphertext))
+                .ToList();
             var result = await keyService.RotateAsync(
                 channelId,
                 userId.Value,
                 body.NewKeyVersion,
                 wraps,
+                body.Mode,
+                replacements,
                 ct);
             return Results.Ok(new RotateResultDto
             {
                 NewKeyVersion = result.NewKeyVersion,
                 NewNextRotationUtc = result.NewNextRotationUtc,
                 DeletedMessages = result.DeletedMessages,
-                ClearedOnRotation = result.ClearedOnRotation,
+                ReencryptedMessages = result.ReencryptedMessages,
+                Mode = result.Mode,
             });
         }
         catch (ChannelKeyService.PgpValidationException ex)
@@ -235,6 +241,7 @@ public static class E2eeChannelHandlers
     // -----------------------------------------------------------------
     public static async Task<IResult> GetMyKey(
         int channelId,
+        int? keyVersion,
         ClaimsPrincipal principal,
         AppDbContext context,
         CancellationToken ct)
@@ -244,6 +251,7 @@ public static class E2eeChannelHandlers
 
         var row = await context.Set<GroupChannelKey>()
             .Where(k => k.ChannelId == channelId && k.UserId == userId.Value)
+            .Where(k => keyVersion == null || k.KeyVersion == keyVersion.Value)
             .OrderByDescending(k => k.KeyVersion)
             .Select(k => new
             {

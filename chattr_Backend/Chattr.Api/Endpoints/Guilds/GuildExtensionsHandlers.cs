@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Chattr.Api.Endpoints;
+using Chattr.Api.Realtime;
 using Chattr.Core.Constants;
 using Chattr.Core.DTOs.Guild;
+using Chattr.Core.DTOs.Live;
 using Chattr.Core.Entities;
 using Chattr.Infrastructure.Data;
 using Chattr.Infrastructure.Services;
@@ -346,6 +348,7 @@ public static class GuildExtensionsHandlers
         SetMemberRolesDto dto,
         ClaimsPrincipal principal,
         AppDbContext context,
+        LiveBroadcaster live,
         CancellationToken ct)
     {
         var actorId = principal.UserIdOrNull();
@@ -358,9 +361,9 @@ public static class GuildExtensionsHandlers
         var member = await context.GuildMembers
             .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == userId, ct);
         if (member is null) return Results.NotFound();
-        if (member.IsOwner)
+        if (member.IsOwner && actorId.Value != member.UserId)
         {
-            return Results.Conflict("Cannot change the role set of a guild owner.");
+            return Results.Conflict("Only the guild owner can change their own role set.");
         }
 
         var newRoleIds = (dto.RoleIds ?? new List<int>())
@@ -435,6 +438,31 @@ public static class GuildExtensionsHandlers
         }
 
         await context.SaveChangesAsync(ct);
+
+        var payload = await context.GuildMembers
+            .AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.UserId == userId)
+            .Select(m => new MemberEventPayload
+            {
+                GuildId = guildId,
+                UserId = m.UserId,
+                Username = m.User!.Username,
+                DisplayName = string.IsNullOrEmpty(m.User.DisplayName)
+                    ? m.User.Username
+                    : m.User.DisplayName,
+                AvatarUrl = m.User.AvatarUrl,
+                Nickname = m.Nickname,
+                RoleId = m.RoleId,
+                RoleName = m.Role!.Name,
+                RoleColor = m.Role.Color,
+                RoleIconSvg = m.Role.IconSvg,
+                IsOwner = m.IsOwner,
+                IsAdministrator = m.Role.Permissions!.IsAdministrator,
+                JoinedAt = m.JoinedAt.ToString("O"),
+            })
+            .FirstAsync(ct);
+        await live.MemberUpdated(guildId, payload);
+
         return Results.NoContent();
     }
 

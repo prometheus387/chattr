@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import clsx from "clsx";
 import type { DmMessage, UserPresence } from "@/types/client";
 import { isOnline } from "@/lib/presence";
+import { MessageContent } from "@/components/client/message-content";
 
 interface Props {
   /** The other participant in the DM (for the header). */
@@ -109,9 +110,10 @@ export function DmMessageList({ other, messages, className, onBack }: Props) {
                         </span>
                       </div>
                     )}
-                    <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed text-white/85">
-                      {m.content}
-                    </p>
+                    <MessageContent
+                      content={m.content}
+                      className="text-[14px] leading-relaxed text-white/85"
+                    />
                   </div>
                 </li>
               );

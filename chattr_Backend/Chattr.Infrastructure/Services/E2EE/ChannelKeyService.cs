@@ -1,4 +1,5 @@
 using System.Xml;
+using System.Data;
 using Chattr.Core.Constants;
 using Chattr.Core.Entities;
 using Chattr.Core.Entities.E2EE;
@@ -184,8 +185,22 @@ public sealed class ChannelKeyService
         int callerUserId,
         int newKeyVersion,
         IReadOnlyList<MemberWrap> wraps,
+        string mode,
+        IReadOnlyList<MessageReplacement> replacements,
         CancellationToken ct = default)
     {
+        var normalizedMode = (mode ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalizedMode is not ("delete" or "reencrypt"))
+        {
+            throw new PgpValidationException(
+                "Mode must be either 'delete' or 'reencrypt'.");
+        }
+
+        // A serializable transaction makes the history snapshot stable. If a
+        // message arrives concurrently, PostgreSQL aborts one transaction
+        // instead of leaving ciphertext on the previous key version.
+        await using var transaction = await _context.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, ct);
         if (wraps.Count == 0)
         {
             throw new PgpValidationException(
@@ -290,20 +305,48 @@ public sealed class ChannelKeyService
 
         _context.Set<GroupChannelKey>().AddRange(newRows);
 
-        // Clear-on-rotation: hard-delete the channel's
-        // ciphertext history. The old AES key is gone
-        // (we just rotated it), so this is effectively
-        // deleting undecryptable bytes.
+        // History handling is explicit per rotation. In reencrypt mode the
+        // browser has already decrypted and encrypted every message locally;
+        // this service only validates completeness and swaps opaque blobs.
         int deletedMessages = 0;
-        if (channel.ClearOnRotation)
+        int reencryptedMessages = 0;
+        var oldMessages = await _context.Set<Chattr.Core.Entities.E2EE.Message>()
+            .Where(m => m.ChannelId == channelId)
+            .ToListAsync(ct);
+        if (normalizedMode == "delete")
         {
-            var oldMessages = await _context.Set<Chattr.Core.Entities.E2EE.Message>()
-                .Where(m => m.ChannelId == channelId)
-                .ToListAsync(ct);
             if (oldMessages.Count > 0)
             {
                 _context.Set<Chattr.Core.Entities.E2EE.Message>().RemoveRange(oldMessages);
                 deletedMessages = oldMessages.Count;
+            }
+        }
+        else
+        {
+            var replacementMap = replacements
+                .GroupBy(r => r.MessageId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            var oldMessageIds = oldMessages.Select(m => m.Id).ToHashSet();
+            if (replacementMap.Any(pair => pair.Value.Count != 1) ||
+                replacementMap.Count != oldMessages.Count ||
+                oldMessages.Any(m => !replacementMap.ContainsKey(m.Id)) ||
+                replacementMap.Keys.Any(id => !oldMessageIds.Contains(id)))
+            {
+                throw new PgpValidationException(
+                    "Re-encryption must contain exactly one replacement for every existing message.");
+            }
+
+            foreach (var message in oldMessages)
+            {
+                var ciphertext = replacementMap[message.Id][0].Ciphertext;
+                if (string.IsNullOrWhiteSpace(ciphertext))
+                {
+                    throw new PgpValidationException(
+                        $"Ciphertext is required for message {message.Id}.");
+                }
+                message.Ciphertext = ciphertext;
+                message.KeyVersion = newKeyVersion;
+                reencryptedMessages++;
             }
         }
 
@@ -331,18 +374,21 @@ public sealed class ChannelKeyService
         channel.NextRotationUtc = now.Add(interval);
 
         await _context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         return new RotateResult(
             channel.NextRotationUtc,
             newKeyVersion,
             deletedMessages,
-            channel.ClearOnRotation);
+            reencryptedMessages,
+            normalizedMode);
     }
 
     /// <summary>
     /// Single per-member wrap in a rotation request.
     /// </summary>
     public sealed record MemberWrap(int UserId, string EncryptedAesKey);
+    public sealed record MessageReplacement(int MessageId, string Ciphertext);
 
     /// <summary>
     /// Result of a successful rotation. The client
@@ -359,5 +405,6 @@ public sealed class ChannelKeyService
         DateTime NewNextRotationUtc,
         int NewKeyVersion,
         int DeletedMessages,
-        bool ClearedOnRotation);
+        int ReencryptedMessages,
+        string Mode);
 }
